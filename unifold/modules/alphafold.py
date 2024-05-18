@@ -118,11 +118,6 @@ class AlphaFold(nn.Module):
             self.__make_input_float__()
         self.dtype = torch.bfloat16
         return self
-    
-    def float(self):
-        super().float()
-        self.dtype = torch.float
-        return self
 
     def float(self):
         super().float()

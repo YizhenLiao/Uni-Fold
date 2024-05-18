@@ -22,7 +22,7 @@ from typing import Any, Mapping, Optional, Sequence, Tuple
 from absl import logging
 from Bio import PDB
 from Bio.PDB.MMCIFParser import MMCIFParser
-from . import SCOPData
+from Bio.Data import SCOPData
 
 # Type aliases:
 ChainId = str
