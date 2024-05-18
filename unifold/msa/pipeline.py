@@ -49,12 +49,19 @@ def make_sequence_features(
     features["sequence"] = np.array([sequence.encode("utf-8")], dtype=np.object_)
     return features
 
+hhblits_map_trans = str.maketrans(
+    ''.join(residue_constants.HHBLITS_AA_TO_ID.keys()),
+    ''.join(chr(v) for v in residue_constants.HHBLITS_AA_TO_ID.values())
+)
 
-def make_msa_features(msas: Sequence[parsers.Msa]) -> FeatureDict:
+
+def make_msa_features(msas: Sequence[parsers.Msa], taxonomy_mapping: Mapping[str, str] = None) -> FeatureDict:
     """Constructs a feature dict of MSA features."""
     if not msas:
         raise ValueError("At least one MSA must be provided.")
-
+    if taxonomy_mapping is None:
+        taxonomy_mapping = lambda x: msa_identifiers.get_identifiers(x).species_id
+        
     int_msa = []
     deletion_matrix = []
     species_ids = []
@@ -67,21 +74,21 @@ def make_msa_features(msas: Sequence[parsers.Msa]) -> FeatureDict:
                 continue
             seen_sequences.add(sequence)
             int_msa.append(
-                [residue_constants.HHBLITS_AA_TO_ID[res] for res in sequence]
+                np.frombuffer(
+                    (bytes(sequence.translate(hhblits_map_trans), "ascii")), dtype=np.uint8
+                )
             )
             deletion_matrix.append(msa.deletion_matrix[sequence_index])
-            identifiers = msa_identifiers.get_identifiers(
-                msa.descriptions[sequence_index]
-            )
-            species_ids.append(identifiers.species_id.encode("utf-8"))
+            species_ids.append(taxonomy_mapping(msa.descriptions[sequence_index]).encode("utf-8"))
 
     num_res = len(msas[0].sequences[0])
     num_alignments = len(int_msa)
-    features = {}
-    features["deletion_matrix_int"] = np.array(deletion_matrix, dtype=np.int32)
-    features["msa"] = np.array(int_msa, dtype=np.int32)
-    features["num_alignments"] = np.array([num_alignments] * num_res, dtype=np.int32)
-    features["msa_species_identifiers"] = np.array(species_ids, dtype=np.object_)
+    features = {
+        "deletion_matrix_int": np.array(deletion_matrix, dtype=np.int32),
+        "msa": np.stack(int_msa),
+        "num_alignments": np.array([num_alignments] * num_res, dtype=np.int32),
+        "msa_species_identifiers": np.array(species_ids, dtype=np.object_),
+    }
     return features
 
 

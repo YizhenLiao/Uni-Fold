@@ -280,6 +280,29 @@ bash run_uf_symmetry.sh \
 
 to inference with UF-Symmetry. **Note that the input FASTA file should contain the sequences of the asymmetric unit only, and a symmetry group must be specified for the model.**
 
+## Generate MSA/Template Features with MMSeqs2
+
+Uni-Fold now allows batch inference for MSA/Template search with MMSeqs2. Run
+```bash
+bash run_mmseqs.sh <query> <dbbase> <result> <a3m_out> <templ_out> <threads>
+```
+to use MMSeqs2 to generate raw features.
+
+- `query`: path to one fasta file / a directory of fasta files / a csv with column `id` and `sequence`.
+- `dbbase`: directory of databases for MMSeqs2 and template pipeline, containing
+    - uniref30_2202 (profile and MSA)
+    - colabfold_envdb_202108 (MSA)
+    - uniprot_tax.lmdb (mapping from UniProt IDs to taxonomy IDs, for MSA pairing)
+    - pdb70_220313 (PDB70 sequences for MMSeqs2 template filtering)
+    - pdb70 (PDB70 profiles for template refining with HHSearch)
+    - pdb_mmcif (mmcif files for template structures)
+- `result`: directory for final `.feature.pkl.gz` files.
+- `a3m_out`: directory for raw MMSeqs outputs, including the query fasta, `query.lookup` file, `.a3m` files, and `.m8` file for template candidates.
+- `templ_out`: directory for template features `.template.pkl.gz`.
+- `threads`: number of workers.
+
+Notably, the pipeline (in [`run_mmseqs.sh`](./run_mmseqs.sh)) includes three steps, namely `mmseqs_search`, `make_template_features` and `merge_features`. which 1. search for MSAs and template candidates (`.a3m` and `.m8` files); 2. use the Uni-Fold pipeline to generate template features (`.template.pkl.gz` files); and 3. merge all features into one file (`.feature.pkl.gz`).
+
 ## Inference on Hermite
 
 We provide covenient structure prediction service on [Hermite™](https://hermite.dp.tech/), a new-generation drug design platform powered by AI, physics, and computing. Users only need to upload sequences of protein monomers and multimers to obtain the predicted structures from Uni-Fold, acompanied by various analyzing tools. [Click here](https://docs.google.com/document/d/1iFdezkKJVuhyqN3WvzsC7-422T-zf18IhP7M9CBj5gs) for more information of how to use Hermite™.

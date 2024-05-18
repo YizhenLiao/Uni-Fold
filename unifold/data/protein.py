@@ -150,7 +150,7 @@ def _chain_end(atom_index, end_resname, chain_name, residue_index) -> str:
     )
 
 
-def to_pdb(prot: Protein) -> str:
+def to_pdb(prot: Protein, model_id: int = 1) -> str:
     """Converts a `Protein` instance to a PDB string.
 
     Args:
@@ -184,7 +184,7 @@ def to_pdb(prot: Protein) -> str:
             )
         chain_ids[i] = PDB_CHAIN_IDS[i]
 
-    pdb_lines.append("MODEL     1")
+    pdb_lines.append(f"MODEL     {model_id}")
     atom_index = 1
     last_chain_index = chain_index[0]
     # Add all atom sites.

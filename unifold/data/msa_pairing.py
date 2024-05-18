@@ -60,6 +60,10 @@ SEQ_FEATURES = (
     "rigid_group_default_frame",
     # zy
     "num_sym",
+    "input_atom_positions",
+    "input_atom_mask",
+    "input_rigidgroups_gt_frames",
+    "input_rigidgroups_gt_exists",
 )
 TEMPLATE_FEATURES = (
     "template_aatype",
@@ -71,6 +75,7 @@ CHAIN_FEATURES = ("num_alignments", "seq_length")
 
 def create_paired_features(
     chains: Iterable[NumpyDict],
+    use_mmseqs_paired_msa: bool = False
 ) -> List[NumpyDict]:
     """Returns the original chains with paired NUM_SEQ features.
 
@@ -88,7 +93,7 @@ def create_paired_features(
         return chains
     else:
         updated_chains = []
-        paired_chains_to_paired_row_indices = pair_sequences(chains)
+        paired_chains_to_paired_row_indices = pair_sequences(chains, use_mmseqs_paired_msa)
         paired_rows = reorder_paired_rows(paired_chains_to_paired_row_indices)
 
         for chain_num, chain in enumerate(chains):
@@ -204,10 +209,22 @@ def _match_rows_by_sequence_similarity(
     return all_paired_msa_rows
 
 
-def pair_sequences(examples: List[NumpyDict]) -> Dict[int, np.ndarray]:
+def pair_sequences(examples: List[NumpyDict], use_mmseqs2_paired_msa: bool = False) -> Dict[int, np.ndarray]:
     """Returns indices for paired MSA sequences across chains."""
-
     num_examples = len(examples)
+    if use_mmseqs2_paired_msa:
+        num_alignments = [
+            example["msa_all_seq"].shape[0]
+            for example in examples
+        ]
+        nalign = num_alignments[0]
+        assert all(n == nalign for n in num_alignments), \
+            f"incompatible numbers of alignments are provided: {num_alignments}."
+        return {
+            num_examples: np.stack(
+                [np.arange(nalign) for _ in range(num_examples)], axis=-1
+            )   # [nalign, nchain]
+        }
 
     all_chain_species_dict = []
     common_species = set()

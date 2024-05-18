@@ -75,7 +75,8 @@ class AlphafoldTask(UnicoreTask):
                 self.config,
                 self.args.data,
                 mode="eval",
-                max_step=None,
+                max_step=128,
+                disable_sd=True,
                 json_prefix=self.args.json_prefix,
             )
 

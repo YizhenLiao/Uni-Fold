@@ -44,6 +44,7 @@ class EvoformerIteration(nn.Module):
         inf: float,
         eps: float,
         _is_extra_msa_stack: bool = False,
+        no_col_attention: bool = False,
     ):
         super(EvoformerIteration, self).__init__()
 
@@ -64,12 +65,14 @@ class EvoformerIteration(nn.Module):
                 num_heads=num_heads_msa,
                 inf=inf,
                 eps=eps,
+                no_attention=no_col_attention,
             )
         else:
             self.msa_att_col = MSAColumnAttention(
                 d_msa,
                 d_hid_msa_att,
                 num_heads_msa,
+                no_attention=no_col_attention,
             )
 
         self.msa_transition = Transition(
@@ -231,6 +234,7 @@ class EvoformerStack(nn.Module):
         inf: float,
         eps: float,
         _is_extra_msa_stack: bool = False,
+        no_col_attention: bool = False,
         **kwargs,
     ):
         super(EvoformerStack, self).__init__()
@@ -257,6 +261,7 @@ class EvoformerStack(nn.Module):
                     inf=inf,
                     eps=eps,
                     _is_extra_msa_stack=_is_extra_msa_stack,
+                    no_col_attention=no_col_attention,
                 )
             )
         if not self._is_extra_msa_stack:
@@ -325,6 +330,7 @@ class ExtraMSAStack(EvoformerStack):
         outer_product_mean_first: bool,
         inf: float,
         eps: float,
+        no_col_attention: bool = False,
         **kwargs,
     ):
         super(ExtraMSAStack, self).__init__(
@@ -345,6 +351,7 @@ class ExtraMSAStack(EvoformerStack):
             inf=inf,
             eps=eps,
             _is_extra_msa_stack=True,
+            no_col_attention=no_col_attention,
         )
 
     def forward(

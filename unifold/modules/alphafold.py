@@ -77,12 +77,13 @@ class AlphaFold(nn.Module):
             self.template_proj = TemplateProjection(
                 **template_config["template_pointwise_attention"],
             )
-        self.extra_msa_embedder = ExtraMSAEmbedder(
-            **extra_msa_config["extra_msa_embedder"],
-        )
-        self.extra_msa_stack = ExtraMSAStack(
-            **extra_msa_config["extra_msa_stack"],
-        )
+        if config.extra_msa.enabled:
+            self.extra_msa_embedder = ExtraMSAEmbedder(
+                **extra_msa_config["extra_msa_embedder"],
+            )
+            self.extra_msa_stack = ExtraMSAStack(
+                **extra_msa_config["extra_msa_stack"],
+            )
         self.evoformer = EvoformerStack(
             **config["evoformer_stack"],
         )
@@ -118,6 +119,11 @@ class AlphaFold(nn.Module):
         self.dtype = torch.bfloat16
         return self
     
+    def float(self):
+        super().float()
+        self.dtype = torch.float
+        return self
+
     def float(self):
         super().float()
         self.dtype = torch.float

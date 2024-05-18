@@ -28,7 +28,8 @@ class AlphafoldLoss(UnicoreLoss):
     def __init__(self, task):
         super().__init__(task)
 
-    def forward(self, model, batch, reduce=True):
+    @staticmethod
+    def forward(model, batch, reduce=True):
         """Compute the loss for the given sample.
 
         Returns a tuple with three elements:
@@ -44,11 +45,12 @@ class AlphafoldLoss(UnicoreLoss):
         # remove recyling dim
         batch = tensor_tree_map(lambda t: t[-1, ...], batch)
         
-        loss, sample_size, logging_output = self.loss(out, batch, config)
+        loss, sample_size, logging_output = AlphafoldLoss.loss(out, batch, config)
         logging_output["num_recycling"] = num_recycling
         return loss, sample_size, logging_output
 
-    def loss(self, out, batch, config):
+    @staticmethod
+    def loss(out, batch, config):
 
         if "violation" not in out.keys() and config.violation.weight:
             out["violation"] = find_structural_violations(

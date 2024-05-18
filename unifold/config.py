@@ -2,7 +2,6 @@ import ml_collections as mlc
 import copy
 from typing import Any
 
-
 N_RES = "number of residues"
 N_MSA = "number of MSA sequences"
 N_EXTRA_MSA = "number of extra MSA sequences"
@@ -111,12 +110,14 @@ def base_config():
                     "random_delete_msa": {
                         "max_msa_entry": 1 << 25,  # := 33554432
                     },
+                    "use_msa": True,
                     "v2_feature": False,
                     "gumbel_sample": False,
                     "max_extra_msa": 1024,
                     "msa_cluster_features": True,
                     "reduce_msa_clusters_by_max_templates": True,
                     "resample_msa_in_recycling": True,
+                    "train_max_date": "2022-04-30",
                     "template_features": [
                         "template_all_atom_positions",
                         "template_sum_probs",
@@ -197,8 +198,8 @@ def base_config():
                     "max_msa_clusters": 128,
                     "max_templates": 4,
                     "num_ensembles": 1,
-                    "crop": False,
-                    "crop_size": None,
+                    "crop": True,
+                    "crop_size": 384,
                     "spatial_crop_prob": 0.5,
                     "ca_ca_threshold": 10.0,
                     "supervised": True,
@@ -363,11 +364,13 @@ def base_config():
                         "num_bins": 50,
                         "d_in": d_single,
                         "d_hid": 128,
+                        "enabled": True,
                     },
                     "distogram": {
                         "d_pair": d_pair,
                         "num_bins": aux_distogram_bins,
                         "disable_enhance_head": False,
+                        "enabled": True,
                     },
                     "pae": {
                         "d_pair": d_pair,
@@ -380,6 +383,7 @@ def base_config():
                         "d_msa": d_msa,
                         "d_out": 23,
                         "disable_enhance_head": False,
+                        "enabled": True,
                     },
                     "experimentally_resolved": {
                         "d_single": d_single,
@@ -551,12 +555,28 @@ def model_config(name, train=False):
         c.globals.alphafold_original_mode = True
     elif name == "model_2_v2":
         c = model_2_v2(c)
+    elif name == "model_1_v2_ft":
+        c = model_2_v2(c)
+        recursive_set(c, "max_extra_msa", 5120)
+        recursive_set(c, "max_msa_clusters", 512)
+        c.data.train.crop_size = 384
+        c.loss.violation.weight = 0.02
     elif name == "model_2_v2_ft":
         c = model_2_v2(c)
         recursive_set(c, "max_extra_msa", 1024)
         recursive_set(c, "max_msa_clusters", 512)
         c.data.train.crop_size = 384
         c.loss.violation.weight = 0.02
+    elif name == "model_3_v2_ft" or name == "model_4_v2_ft":
+        c = model_2_v2(c)
+        recursive_set(c, "max_extra_msa", 5120)
+        recursive_set(c, "max_msa_clusters", 512)
+        c.data.train.crop_size = 384
+        c.loss.violation.weight = 0.02
+        c.model.template.enabled = False
+        c.model.template.embed_angles = False
+        recursive_set(c, "use_templates", False)
+        recursive_set(c, "use_template_torsion_angles", False)
     elif name == "model_3_af2" or name == "model_4_af2":
         recursive_set(c, "max_extra_msa", 5120)
         recursive_set(c, "max_msa_clusters", 512)
@@ -566,6 +586,16 @@ def model_config(name, train=False):
         c.model.heads.experimentally_resolved.enabled = True
         c.loss.experimentally_resolved.weight = 0.01
         c.globals.alphafold_original_mode = True
+        c.model.template.enabled = False
+        c.model.template.embed_angles = False
+        recursive_set(c, "use_templates", False)
+        recursive_set(c, "use_template_torsion_angles", False)
+    elif name == "model_5_v2_ft":
+        c = model_2_v2(c)
+        recursive_set(c, "max_extra_msa", 1024)
+        recursive_set(c, "max_msa_clusters", 512)
+        c.data.train.crop_size = 384
+        c.loss.violation.weight = 0.02
         c.model.template.enabled = False
         c.model.template.embed_angles = False
         recursive_set(c, "use_templates", False)

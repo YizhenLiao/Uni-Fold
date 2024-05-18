@@ -56,8 +56,7 @@ class Linear(nn.Linear):
         with torch.no_grad():
             self.weight.fill_(0.0)
             if use_bias:
-                with torch.no_grad():
-                    self.bias.fill_(1.0)
+                self.bias.fill_(1.0)
 
     def _normal_init(self):
         torch.nn.init.kaiming_normal_(self.weight, nonlinearity="linear")
@@ -128,18 +127,18 @@ class OuterProductMean(nn.Module):
         self.layer_norm_out = LayerNorm(self.d_pair)
 
     def _opm(self, a, b):
-        outer = torch.einsum("...bac,...dae->...bdce", a, b)
-        outer = outer.reshape(outer.shape[:-2] + (-1,))
-        outer = self.linear_out(outer)
+        outer = torch.einsum("...bac,...dae->...bdce", a, b) # (_,b,s,m,d)* (_,b,s,m,d) -> (_,b,s,s,d,d)
+        outer = outer.reshape(outer.shape[:-2] + (-1,)) # (_,b,s,s,d)
+        outer = self.linear_out(outer)# (_,b,s,s,d)
         return outer
 
     @torch.jit.ignore
     def _chunk(self, a: torch.Tensor, b: torch.Tensor, chunk_size: int) -> torch.Tensor:
-        a = a.reshape((-1,) + a.shape[-3:])
-        b = b.reshape((-1,) + b.shape[-3:])
+        a_reshaped = a.reshape((-1,) + a.shape[-3:]) # (_,b,s,m,d) -> (b,s,m,d)
+        b_reshaped = b.reshape((-1,) + b.shape[-3:]) # (_,b,s,m,d) -> (b,s,m,d)
         out = []
         # TODO: optimize this
-        for a_prime, b_prime in zip(a, b):
+        for a_prime, b_prime in zip(a_reshaped, b_reshaped):
             outer = chunk_layer(
                 partial(self._opm, b=b_prime),
                 {"a": a_prime},
@@ -148,10 +147,11 @@ class OuterProductMean(nn.Module):
             )
             out.append(outer)
         if len(out) == 1:
-            outer = out[0].unsqueeze(0)
+            outer = out[0].unsqueeze(0) # (1,s,s,d)
         else:
-            outer = torch.stack(out, dim=0)
-        outer = outer.reshape(a.shape[:-3] + outer.shape[1:])
+            outer = torch.stack(out, dim=0) # (b,s,s,d)
+         # bring the possble dimensions of "a" back to "outer"
+        outer = outer.reshape(a.shape[:-3] + outer.shape[1:]) # (b,s,s,d) -> (1,b,s,s,d)
 
         return outer
 
@@ -230,7 +230,9 @@ def bias_dropout_residual(module, residual, x, dropout_shared_dim, prob, trainin
     bias = module.get_output_bias()
     if training:
         shape = list(x.shape)
-        shape[dropout_shared_dim] = 1
+        # make shared dropout optional
+        if dropout_shared_dim is not None:
+            shape[dropout_shared_dim] = 1
         with torch.no_grad():
             mask = x.new_ones(shape)
         return fused_bias_dropout_add(x, bias, residual, mask, prob)
@@ -372,3 +374,80 @@ def chunk_layer(
     out = tensor_tree_map(reshape, out)
 
     return out
+
+
+class ResnetBlock(nn.Module):
+    def __init__(self, d):
+        """
+        Args:
+            d:
+                Hidden channel dimension
+        """
+        super(ResnetBlock, self).__init__()
+
+        self.linear_1 = Linear(d, d, init="relu")
+        self.act = nn.GELU()
+        self.linear_2 = Linear(d, d, init="final")
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+
+        x_0 = x
+
+        x = self.act(x)
+        x = self.linear_1(x)
+        x = self.act(x)
+        x = self.linear_2(x)
+
+        return residual(x, x_0, self.training)
+
+
+class Resnet(nn.Module):
+    def __init__(
+        self,
+        d_in: int,
+        d_out: int,
+        d_hid: int,
+        num_blocks: int,
+        final_init: str = "default",
+    ):
+        """
+        Args:
+            d_in:
+                Input channel dimension
+            d_out:
+                Output channel dimension
+        """
+        super(Resnet, self).__init__()
+
+        self.d_in = d_in
+        self.d_out = d_out
+        self.d_hid = d_hid
+        self.num_blocks = num_blocks
+
+        self.linear_in = Linear(self.d_in, self.d_hid)
+        self.act = nn.GELU()
+
+        self.layers = nn.ModuleList()
+        for _ in range(self.num_blocks):
+            layer = ResnetBlock(d=self.d_hid)
+            self.layers.append(layer)
+
+        self.linear_out = Linear(self.d_hid, self.d_out, init=final_init)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x:
+                [*, C_in] pseudo residue feature
+        Returns:
+            [*, C_out] embedding
+        """
+        x = x.type(self.linear_in.weight.dtype)
+
+        x = self.linear_in(x)
+        x = self.act(x)
+        for l in self.layers:
+            x = l(x)
+        x = self.linear_out(x)
+
+        return x

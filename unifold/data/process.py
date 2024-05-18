@@ -10,8 +10,12 @@ def nonensembled_fns(common_cfg, mode_cfg):
     """Input pipeline data transformers that are not ensembled."""
     v2_feature = common_cfg.v2_feature
     operators = []
-    if mode_cfg.random_delete_msa:
+
+    if not common_cfg.use_msa:
+        operators.append(data_ops.replace_msa_with_target(make_extra_msa=common_cfg.use_self_as_extra_msa))
+    elif mode_cfg.random_delete_msa:
         operators.append(data_ops.random_delete_msa(common_cfg.random_delete_msa))
+
     operators.extend(
         [
             data_ops.cast_to_64bit_ints,
@@ -22,9 +26,12 @@ def nonensembled_fns(common_cfg, mode_cfg):
             data_ops.make_msa_mask,
         ]
     )
-    operators.append(
-        data_ops.make_hhblits_profile_v2 if v2_feature else data_ops.make_hhblits_profile
-    )
+
+    if common_cfg.use_msa:
+        operators.append(
+            data_ops.make_hhblits_profile_v2 if v2_feature else data_ops.make_hhblits_profile
+        )
+
     if common_cfg.use_templates:
         operators.extend(
             [
@@ -38,17 +45,15 @@ def nonensembled_fns(common_cfg, mode_cfg):
                 subsample_templates=mode_cfg.subsample_templates,
             )
         )
-
-    if common_cfg.use_template_torsion_angles:
-        operators.extend(
-            [
-                data_ops.atom37_to_torsion_angles("template_"),
-            ]
-        )
+        if common_cfg.use_template_torsion_angles:
+            operators.extend(
+                [
+                    data_ops.atom37_to_torsion_angles("template_"),
+                ]
+            )
 
     operators.append(data_ops.make_atom14_masks)
     operators.append(data_ops.make_target_feat)
-
     return operators
 
 
@@ -96,6 +101,8 @@ def ensembled_fns(common_cfg, mode_cfg):
     operators = []
     multimer_mode = common_cfg.is_multimer
     v2_feature = common_cfg.v2_feature
+    if not common_cfg.use_msa:
+        return [data_ops.make_msa_1seq_feat(common_cfg.msa_cluster_features)]
     # multimer don't use block delete msa
     if mode_cfg.block_delete_msa and not multimer_mode:
         operators.append(data_ops.block_delete_msa(common_cfg.block_delete_msa))
@@ -188,7 +195,7 @@ def process_features(tensors, common_cfg, mode_cfg):
 
     nonensembled = nonensembled_fns(common_cfg, mode_cfg)
 
-    if mode_cfg.supervised and (not multimer_mode or is_distillation):
+    if mode_cfg.supervised:
         nonensembled.extend(label_transform_fn())
 
     tensors = compose(nonensembled)(tensors)
@@ -260,6 +267,7 @@ def process_labels(labels_list, num_ensemble: Optional[int] = None):
 
 def label_transform_fn():
     return [
+        data_ops.remove_center_op(),
         data_ops.make_atom14_masks,
         data_ops.make_atom14_positions,
         data_ops.atom37_to_frames,

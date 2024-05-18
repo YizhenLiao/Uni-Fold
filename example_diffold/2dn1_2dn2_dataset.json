@@ -1,0 +1,22 @@
+{
+    "2dn1": {
+        "id": ["2dn1_A", "2dn1_B","2dn1_A", "2dn1_B"],
+        "residue_idx": "1-140/142-281/283-427/429-573",
+        "is_monomer": false,
+        "initial_t": 0.1,
+        "num_replica": 1,
+        "num_steps": 5,
+        "inf_steps": 100,
+        "save_trajectory": true
+    },
+    "2dn2": {
+        "id": ["2dn2_A", "2dn2_B","2dn2_C", "2dn2_D"],
+        "residue_idx": "1-140/142-281/283-427/429-573",
+        "is_monomer": false,
+        "initial_t": 0.1,
+        "num_replica": 1,
+        "num_steps": 5,
+        "inf_steps": 10,
+        "save_trajectory": true
+    }
+}

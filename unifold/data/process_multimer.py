@@ -59,6 +59,8 @@ REQUIRED_FEATURES = frozenset(
         "template_sum_probs",
         "num_sym",
         "msa_chains",
+        "input_atom_positions",
+        "input_atom_mask",
     }
 )
 
@@ -82,7 +84,7 @@ def _is_homomer_or_monomer(chains: Iterable[FeatureDict]) -> bool:
     return num_unique_chains == 1
 
 
-def pair_and_merge(all_chain_features: MutableMapping[str, FeatureDict]) -> FeatureDict:
+def pair_and_merge(all_chain_features: MutableMapping[str, FeatureDict], use_mmseqs_paired_msa: bool = False) -> FeatureDict:
     """Runs processing on features to augment, pair and merge.
 
     Args:
@@ -99,7 +101,7 @@ def pair_and_merge(all_chain_features: MutableMapping[str, FeatureDict]) -> Feat
     pair_msa_sequences = not _is_homomer_or_monomer(np_chains_list)
 
     if pair_msa_sequences:
-        np_chains_list = msa_pairing.create_paired_features(chains=np_chains_list)
+        np_chains_list = msa_pairing.create_paired_features(chains=np_chains_list, use_mmseqs_paired_msa=use_mmseqs_paired_msa)
         np_chains_list = msa_pairing.deduplicate_unpaired_sequences(np_chains_list)
     np_chains_list = crop_chains(
         np_chains_list,
@@ -277,7 +279,8 @@ def empty_template_feats(n_res):
 
 def convert_monomer_features(monomer_features: FeatureDict) -> FeatureDict:
     """Reshapes and modifies monomer features for multimer models."""
-    if monomer_features["template_aatype"].shape[0] == 0:
+    if "template_aatype" not in monomer_features \
+            or monomer_features["template_aatype"].shape[0] == 0:
         monomer_features.update(
             empty_template_feats(monomer_features["aatype"].shape[0])
         )

@@ -28,14 +28,17 @@ class Attention(nn.Module):
         head_dim: int,
         num_heads: int,
         gating: bool = True,
+        no_attention: bool = False,
     ):
         super(Attention, self).__init__()
 
         self.num_heads = num_heads
         total_dim = head_dim * self.num_heads
         self.gating = gating
-        self.linear_q = Linear(q_dim, total_dim, bias=False, init="glorot")
-        self.linear_k = Linear(k_dim, total_dim, bias=False, init="glorot")
+        self.no_attention = no_attention
+        if not no_attention:
+            self.linear_q = Linear(q_dim, total_dim, bias=False, init="glorot")
+            self.linear_k = Linear(k_dim, total_dim, bias=False, init="glorot")
         self.linear_v = Linear(v_dim, total_dim, bias=False, init="glorot")
         self.linear_o = Linear(total_dim, q_dim, init="final")
         self.linear_g = None
@@ -57,21 +60,22 @@ class Attention(nn.Module):
             # gating, use raw query input
             g = self.linear_g(q)
 
-        q = self.linear_q(q)
-        q *= self.norm
-        k = self.linear_k(k)
         v = self.linear_v(v)
-
-        q = q.view(q.shape[:-1] + (self.num_heads, -1)).transpose(-2, -3).contiguous()
-        k = k.view(k.shape[:-1] + (self.num_heads, -1)).transpose(-2, -3).contiguous()
         v = v.view(v.shape[:-1] + (self.num_heads, -1)).transpose(-2, -3)
 
-        attn = torch.matmul(q, k.transpose(-1, -2))
-        del q, k
-
-        attn = softmax_dropout(attn, 0, self.training, mask=mask, bias=bias)
-        o = torch.matmul(attn, v)
-        del attn, v
+        if not self.no_attention:
+            q = self.linear_q(q)
+            q *= self.norm
+            k = self.linear_k(k)
+            q = q.view(q.shape[:-1] + (self.num_heads, -1)).transpose(-2, -3).contiguous()
+            k = k.view(k.shape[:-1] + (self.num_heads, -1)).transpose(-2, -3).contiguous()
+            attn = torch.matmul(q, k.transpose(-1, -2))
+            del q, k
+            attn = softmax_dropout(attn, 0, self.training, mask=mask, bias=bias)
+            o = torch.matmul(attn, v)
+            del attn, v
+        else:   # no attention meaning use identical outputs as value.
+            o = v
 
         o = o.transpose(-2, -3).contiguous()
         o = o.view(*o.shape[:-2], -1)
@@ -88,16 +92,18 @@ class Attention(nn.Module):
 
 
 class GlobalAttention(nn.Module):
-    def __init__(self, input_dim, head_dim, num_heads, inf, eps):
+    def __init__(self, input_dim, head_dim, num_heads, inf, eps, no_attention=False):
         super(GlobalAttention, self).__init__()
 
         self.num_heads = num_heads
         self.inf = inf
         self.eps = eps
-        self.linear_q = Linear(
-            input_dim, head_dim * num_heads, bias=False, init="glorot"
-        )
-        self.linear_k = Linear(input_dim, head_dim, bias=False, init="glorot")
+        self.no_attention = no_attention
+        if not no_attention:
+            self.linear_q = Linear(
+                input_dim, head_dim * num_heads, bias=False, init="glorot"
+            )
+            self.linear_k = Linear(input_dim, head_dim, bias=False, init="glorot")
         self.linear_v = Linear(input_dim, head_dim, bias=False, init="glorot")
         self.linear_g = Linear(input_dim, head_dim * num_heads, init="gating")
         self.linear_o = Linear(head_dim * num_heads, input_dim, init="final")
@@ -109,28 +115,31 @@ class GlobalAttention(nn.Module):
 
         # gating
         g = self.sigmoid(self.linear_g(x))
-
-        k = self.linear_k(x)
         v = self.linear_v(x)
 
-        q = torch.sum(x * mask.unsqueeze(-1), dim=-2) / (
-            torch.sum(mask, dim=-1, keepdims=True) + self.eps
-        )
-        q = self.linear_q(q)
-        q *= self.norm
-        q = q.view(q.shape[:-1] + (self.num_heads, -1))
+        if not self.no_attention:
+            k = self.linear_k(x)
 
-        attn = torch.matmul(q, k.transpose(-1, -2))
-        del q, k
+            q = torch.sum(x * mask.unsqueeze(-1), dim=-2) / (
+                torch.sum(mask, dim=-1, keepdims=True) + self.eps
+            )
+            q = self.linear_q(q)
+            q *= self.norm
+            q = q.view(q.shape[:-1] + (self.num_heads, -1))
 
-        attn_mask = gen_attn_mask(mask, -self.inf)[..., :, None, :]
-        attn = softmax_dropout(attn, 0, self.training, mask=attn_mask)
+            attn = torch.matmul(q, k.transpose(-1, -2))
+            del q, k
 
-        o = torch.matmul(
-            attn,
-            v,
-        )
-        del attn, v
+            attn_mask = gen_attn_mask(mask, -self.inf)[..., :, None, :]
+            attn = softmax_dropout(attn, 0, self.training, mask=attn_mask)
+
+            o = torch.matmul(
+                attn,
+                v,
+            )
+            del attn, v
+        else:
+            o = v
 
         g = g.view(g.shape[:-1] + (self.num_heads, -1))
         o = o.unsqueeze(-3) * g
@@ -158,6 +167,7 @@ class MSAAttention(nn.Module):
         num_heads,
         pair_bias=False,
         d_pair=None,
+        no_attention=False,
     ):
         super(MSAAttention, self).__init__()
 
@@ -169,7 +179,7 @@ class MSAAttention(nn.Module):
             self.layer_norm_z = LayerNorm(d_pair)
             self.linear_z = Linear(d_pair, num_heads, bias=False, init="normal")
 
-        self.mha = Attention(d_in, d_in, d_in, d_hid, num_heads)
+        self.mha = Attention(d_in, d_in, d_in, d_hid, num_heads, no_attention=no_attention)
 
     @torch.jit.ignore
     def _chunk(
@@ -261,13 +271,14 @@ class MSARowAttentionWithPairBias(MSAAttention):
 
 
 class MSAColumnAttention(MSAAttention):
-    def __init__(self, d_msa, d_hid, num_heads):
+    def __init__(self, d_msa, d_hid, num_heads, no_attention=False):
         super(MSAColumnAttention, self).__init__(
             d_in=d_msa,
             d_hid=d_hid,
             num_heads=num_heads,
             pair_bias=False,
             d_pair=None,
+            no_attention=no_attention
         )
 
     def forward(
@@ -291,6 +302,7 @@ class MSAColumnGlobalAttention(nn.Module):
         num_heads,
         inf=1e9,
         eps=1e-10,
+        no_attention=False
     ):
         super(MSAColumnGlobalAttention, self).__init__()
 
@@ -301,6 +313,7 @@ class MSAColumnGlobalAttention(nn.Module):
             num_heads,
             inf=inf,
             eps=eps,
+            no_attention=no_attention
         )
 
     @torch.jit.ignore

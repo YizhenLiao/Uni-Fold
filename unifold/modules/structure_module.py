@@ -29,11 +29,11 @@ def ipa_point_weights_init_(weights):
 
 def torsion_angles_to_frames(
     frame: Frame,
-    alpha: torch.Tensor,
+    alpha: torch.Tensor, # [B, NR, 7, 2]
     aatype: torch.Tensor,
     default_frames: torch.Tensor,
 ):
-    default_frame = Frame.from_tensor_4x4(default_frames[aatype, ...])
+    default_frame = Frame.from_tensor_4x4(default_frames[aatype, ...]) # [B, NR, 8]
 
     bb_rot = alpha.new_zeros((*((1,) * len(alpha.shape[:-1])), 2))
     bb_rot[..., 1] = 1
@@ -46,7 +46,7 @@ def torsion_angles_to_frames(
     all_rots[..., 1, 2] = -alpha[..., 0]
     all_rots[..., 2, 1:] = alpha
 
-    all_rots = Frame(Rotation(mat=all_rots), None)
+    all_rots = Frame(Rotation(mat=all_rots), None) # [B, NR, 8]
 
     all_frames = default_frame.compose(all_rots)
 
@@ -219,6 +219,7 @@ class InvariantPointAttention(nn.Module):
         z: torch.Tensor,
         f: Frame,
         square_mask: torch.Tensor,
+        return_attn: bool = False,
     ) -> torch.Tensor:
         q = self.linear_q(s)
 
@@ -299,6 +300,7 @@ class InvariantPointAttention(nn.Module):
 
         pt_att = permute_final_dims(pt_att, (2, 0, 1))
         attn += square_mask
+        attn_out = attn
         attn = softmax_dropout(attn, 0, self.training, bias=pt_att.type(attn.dtype))
         del pt_att, q_pts, k_pts, bias
         o = torch.matmul(attn, v.transpose(-2, -3)).transpose(-2, -3)
@@ -335,7 +337,10 @@ class InvariantPointAttention(nn.Module):
             torch.cat((o, *torch.unbind(o_pts, dim=-1), o_pts_norm, o_pair), dim=-1)
         )
 
-        return s
+        if return_attn:
+            return s, attn_out
+        else:
+            return s
 
 
 class BackboneUpdate(nn.Module):
@@ -419,10 +424,7 @@ class StructureModule(nn.Module):
 
         self.num_blocks = num_blocks
         self.trans_scale_factor = trans_scale_factor
-        self.default_frames = None
-        self.group_idx = None
-        self.atom_mask = None
-        self.lit_positions = None
+        self.frame_constants = None
         self.inf = inf
 
         self.layer_norm_s = LayerNorm(d_single)
@@ -476,7 +478,7 @@ class StructureModule(nn.Module):
         s = self.layer_norm_s(s)
         z = self.layer_norm_z(z)
         initial_s = s
-        s = self.linear_in(s)
+        s = self.linear_in(s) # [bsz, nr, h]
 
         quat_encoder = Quaternion.identity(
             s.shape[:-1],
@@ -489,7 +491,7 @@ class StructureModule(nn.Module):
                 mat=quat_encoder.get_rot_mats(),
             ),
             quat_encoder.get_trans(),
-        )
+        ) # [1, nr]
         outputs = []
         for i in range(self.num_blocks):
             s = residual(s, self.ipa(s, z, backb_to_global, square_mask), self.training)
@@ -504,7 +506,7 @@ class StructureModule(nn.Module):
             )
 
             # initial_s is always used to update the backbone
-            unnormalized_angles, angles = self.angle_resnet(s, initial_s)
+            unnormalized_angles, angles = self.angle_resnet(s, initial_s) # [bsz, nr, 7, 2]
 
             # convert quaternion to rotation matrix
             backb_to_global = Frame(
@@ -540,52 +542,39 @@ class StructureModule(nn.Module):
                 backb_to_global = backb_to_global.stop_rot_gradient()
 
         outputs = dict_multimap(torch.stack, outputs)
-        outputs["sidechain_frames"] = all_frames_to_global.to_tensor_4x4()
+        outputs["sidechain_frames"] = all_frames_to_global.to_tensor_4x4() # [bsz, NR, 8, 4, 4]
         outputs["positions"] = pred_positions
         outputs["single"] = s
 
         return outputs
 
     def _init_residue_constants(self, float_dtype, device):
-        if self.default_frames is None:
-            self.default_frames = torch.tensor(
-                restype_rigid_group_default_frame,
-                dtype=float_dtype,
-                device=device,
-                requires_grad=False,
-            )
-        if self.group_idx is None:
-            self.group_idx = torch.tensor(
-                restype_atom14_to_rigid_group,
-                device=device,
-                requires_grad=False,
-            )
-        if self.atom_mask is None:
-            self.atom_mask = torch.tensor(
-                restype_atom14_mask,
-                dtype=float_dtype,
-                device=device,
-                requires_grad=False,
-            )
-        if self.lit_positions is None:
-            self.lit_positions = torch.tensor(
-                restype_atom14_rigid_group_positions,
-                dtype=float_dtype,
-                device=device,
-                requires_grad=False,
-            )
+        if self.frame_constants is None:
+            self.frame_constants = FrameConstants(float_dtype, device)
 
     def torsion_angles_to_frames(self, frame, alpha, aatype):
         self._init_residue_constants(alpha.dtype, alpha.device)
-        return torsion_angles_to_frames(frame, alpha, aatype, self.default_frames)
+        return self.frame_constants.torsion_angles_to_frames(frame, alpha, aatype)
 
     def frames_and_literature_positions_to_atom14_pos(self, frame, aatype):
         self._init_residue_constants(frame.get_rots().dtype, frame.get_rots().device)
+        return self.frame_constants.frames_to_atom14(frame, aatype)
+
+
+class FrameConstants:
+    def __init__(self, dtype, device):
+        tensor_args = {"dtype": dtype, "device": device, "requires_grad": False}
+        self.default_frames = torch.tensor(restype_rigid_group_default_frame, **tensor_args)
+        self.group_idx = torch.tensor(restype_atom14_to_rigid_group, **tensor_args)
+        self.atom_mask = torch.tensor(restype_atom14_mask, **tensor_args)
+        self.lit_positions = torch.tensor(restype_atom14_rigid_group_positions, **tensor_args)
+
+    def frames_to_atom14(self, frame, aatype):
         return frames_and_literature_positions_to_atom14_pos(
-            frame,
-            aatype,
-            self.default_frames,
-            self.group_idx,
-            self.atom_mask,
-            self.lit_positions,
+            frame, aatype, self.default_frames, self.group_idx, self.atom_mask, self.lit_positions
+        )
+    
+    def torsion_angles_to_frames(self, frames, angles, aatype):
+        return torsion_angles_to_frames(
+            frames, angles, aatype, self.default_frames
         )

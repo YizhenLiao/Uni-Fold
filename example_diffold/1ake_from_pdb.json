@@ -1,0 +1,11 @@
+{
+    "1ake": {
+        "pdb": "1ake_A",
+        "other_pdb": "4ake_A",
+        "initial_t": 1.0,
+        "num_replica": 1,
+        "num_steps": 10,
+        "inf_steps": 50,
+        "save_trajectory": true
+    }
+}

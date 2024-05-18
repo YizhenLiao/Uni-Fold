@@ -23,6 +23,16 @@ RUN git clone --branch v3.3.0 https://github.com/soedinglab/hh-suite.git /tmp/hh
   && popd \
   && rm -rf /tmp/hh-suite
 
+# Compile MMSeqs2 from source.
+RUN git clone --branch 14-7e284 git@github.com:soedinglab/MMseqs2.git /tmp/mmseqs \
+  && mkdir /tmp/mmseqs/build \
+  && pushd /tmp/mmseqs/build \
+  && cmake -DCMAKE_INSTALL_PREFIX=/opt/mmseqs .. \
+  && make -j 4 && make install \
+  && ln -s /opt/mmseqs/bin/* /usr/bin \
+  && popd \
+  && rm -rf /tmp/mmseqs
+
 RUN ldconfig && \
   apt-get clean && \
   apt-get autoremove && \

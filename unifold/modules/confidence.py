@@ -139,7 +139,7 @@ def predicted_tm_score(
     predicted_tm_term *= pair_mask
 
     pair_residue_weights = pair_mask * (
-        residue_weights[None, :] * residue_weights[:, None]
+        residue_weights[..., None, :] * residue_weights[..., :, None]
     )
     normed_residue_mask = pair_residue_weights / (
         eps + pair_residue_weights.sum(dim=-1, keepdim=True)

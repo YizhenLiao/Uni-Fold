@@ -748,6 +748,7 @@ def _process_single_hit(
     obsolete_pdbs: Mapping[str, Optional[str]],
     kalign_binary_path: str,
     strict_error_check: bool = False,
+    max_subsequence_ratio: float = 0.95,
 ) -> SingleHitResult:
     """Tries to extract template features from a single HHSearch hit."""
     # Fail hard if we can't get the PDB ID and chain name from the hit.
@@ -771,6 +772,7 @@ def _process_single_hit(
             query_sequence=query_sequence,
             release_dates=release_dates,
             release_date_cutoff=max_template_date,
+            max_subsequence_ratio=max_subsequence_ratio,
         )
     except PrefilterError as e:
         msg = f"hit {hit_pdb_code}_{hit_chain_id} did not pass prefilter: {str(e)}"
@@ -797,7 +799,20 @@ def _process_single_hit(
         template_sequence,
     )
     # Fail if we can't find the mmCIF file.
-    cif_string = _read_file(cif_path)
+    try:
+        cif_string = _read_file(cif_path)
+    except FileNotFoundError as e:
+        warning = (
+            "%s_%s (sum_probs: %s, rank: %s): cif not found: %s"
+            % (
+                hit_pdb_code,
+                hit_chain_id,
+                hit.sum_probs,
+                hit.index,
+                str(e),
+            )
+        )
+        return SingleHitResult(features=None, error=warning, warning=None)
 
     parsing_result = mmcif.parse(file_id=hit_pdb_code, mmcif_string=cif_string)
 
@@ -894,6 +909,7 @@ class TemplateHitFeaturizer(abc.ABC):
         release_dates_path: Optional[str],
         obsolete_pdbs_path: Optional[str],
         strict_error_check: bool = False,
+        max_subsequence_ratio: float = 0.95,
     ):
         """Initializes the Template Search.
 
@@ -934,6 +950,7 @@ class TemplateHitFeaturizer(abc.ABC):
         self._max_hits = max_hits
         self._kalign_binary_path = kalign_binary_path
         self._strict_error_check = strict_error_check
+        self._max_subsequence_ratio = max_subsequence_ratio
 
         if release_dates_path:
             logging.info("Using precomputed release dates %s.", release_dates_path)
@@ -985,6 +1002,7 @@ class HhsearchHitFeaturizer(TemplateHitFeaturizer):
                 obsolete_pdbs=self._obsolete_pdbs,
                 strict_error_check=self._strict_error_check,
                 kalign_binary_path=self._kalign_binary_path,
+                max_subsequence_ratio=self._max_subsequence_ratio,
             )
 
             if result.error:
@@ -1058,6 +1076,7 @@ class HmmsearchHitFeaturizer(TemplateHitFeaturizer):
                 obsolete_pdbs=self._obsolete_pdbs,
                 strict_error_check=self._strict_error_check,
                 kalign_binary_path=self._kalign_binary_path,
+                max_subsequence_ratio=self._max_subsequence_ratio,
             )
 
             if result.error:

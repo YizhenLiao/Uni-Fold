@@ -9,17 +9,20 @@ class AuxiliaryHeads(nn.Module):
     def __init__(self, config):
         super(AuxiliaryHeads, self).__init__()
 
-        self.plddt = PredictedLDDTHead(
-            **config["plddt"],
-        )
+        if config.plddt.enabled:
+            self.plddt = PredictedLDDTHead(
+                **config["plddt"],
+            )
 
-        self.distogram = DistogramHead(
-            **config["distogram"],
-        )
+        if config.distogram.enabled:
+            self.distogram = DistogramHead(
+                **config["distogram"],
+            )
 
-        self.masked_msa = MaskedMSAHead(
-            **config["masked_msa"],
-        )
+        if config.masked_msa.enabled:
+            self.masked_msa = MaskedMSAHead(
+                **config["masked_msa"],
+            )
 
         if config.experimentally_resolved.enabled:
             self.experimentally_resolved = ExperimentallyResolvedHead(
@@ -36,15 +39,18 @@ class AuxiliaryHeads(nn.Module):
     def forward(self, outputs):
         aux_out = {}
         plddt_logits = self.plddt(outputs["sm"]["single"])
-        aux_out["plddt_logits"] = plddt_logits
 
-        aux_out["plddt"] = predicted_lddt(plddt_logits.detach())
+        if self.config.plddt.enabled:
+            aux_out["plddt_logits"] = plddt_logits
+            aux_out["plddt"] = predicted_lddt(plddt_logits.detach())
 
-        distogram_logits = self.distogram(outputs["pair"])
-        aux_out["distogram_logits"] = distogram_logits
+        if self.config.distogram.enabled:
+            distogram_logits = self.distogram(outputs["pair"])
+            aux_out["distogram_logits"] = distogram_logits
 
-        masked_msa_logits = self.masked_msa(outputs["msa"])
-        aux_out["masked_msa_logits"] = masked_msa_logits
+        if self.config.masked_msa.enabled:
+            masked_msa_logits = self.masked_msa(outputs["msa"])
+            aux_out["masked_msa_logits"] = masked_msa_logits
 
         if self.config.experimentally_resolved.enabled:
             exp_res_logits = self.experimentally_resolved(outputs["single"])
@@ -80,7 +86,7 @@ class AuxiliaryHeads(nn.Module):
 
 
 class PredictedLDDTHead(nn.Module):
-    def __init__(self, num_bins, d_in, d_hid):
+    def __init__(self, num_bins, d_in, d_hid, **kwargs):
         super(PredictedLDDTHead, self).__init__()
 
         self.num_bins = num_bins

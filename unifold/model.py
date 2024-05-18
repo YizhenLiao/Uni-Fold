@@ -42,6 +42,10 @@ class AlphafoldModel(BaseUnicoreModel):
         self.model = self.model.float()
         return self
 
+    def float(self):
+        self.model = self.model.float()
+        return self
+
     @classmethod
     def build_model(cls, args, task):
         """Build a new model instance."""

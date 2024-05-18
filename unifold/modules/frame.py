@@ -320,11 +320,11 @@ class Frame:
         e0 = [c1 - c2 for c1, c2 in zip(origin, p_neg_x_axis)]
         e1 = [c1 - c2 for c1, c2 in zip(p_xy_plane, origin)]
 
-        denom = torch.sqrt(sum((c * c for c in e0)) + eps)
+        denom = torch.sqrt(sum((c * c for c in e0)).clamp_min(eps))
         e0 = [c / denom for c in e0]
         dot = sum((c1 * c2 for c1, c2 in zip(e0, e1)))
         e1 = [c2 - c1 * dot for c1, c2 in zip(e0, e1)]
-        denom = torch.sqrt(sum((c * c for c in e1)) + eps)
+        denom = torch.sqrt(sum((c * c for c in e1)).clamp_min(eps))
         e1 = [c / denom for c in e1]
         e2 = [
             e0[1] * e1[2] - e0[2] * e1[1],
@@ -446,6 +446,23 @@ class Quaternion:
             raise ValueError(f"incorrect quaternion shape: {quaternion.shape}")
         self._q = quaternion
         self._t = translation
+    
+    @property
+    def dtype(self):
+        return self._q.dtype
+    
+    @property
+    def device(self):
+        return self._q.device
+    
+    @property
+    def shape(self) -> torch.Size:
+        return self._q.shape[:-1]
+    
+    @staticmethod
+    def from_tensor_7(tensor: torch.Tensor):
+        assert tensor.shape[-1] == 7, tensor.shape
+        return Quaternion(*tensor.split((4, 3), dim=-1))
 
     @staticmethod
     def identity(
@@ -491,10 +508,10 @@ class Quaternion:
         return rot_tensor
 
     @staticmethod
-    def normalize_quat(quats):
+    def normalize_quat(quats, eps=1e-3):
         dtype = quats.dtype
         quats = quats.float()
-        quats = quats / torch.linalg.norm(quats, dim=-1, keepdim=True)
+        quats = quats / torch.linalg.norm(quats, dim=-1, keepdim=True).clamp_min(eps)
         quats = quats.type(dtype)
         return quats
 
@@ -537,3 +554,28 @@ class Quaternion:
 
     def stop_rot_gradient(self) -> Quaternion:
         return Quaternion(self._q.detach(), self._t)
+
+    def scale_translation(self, scale_factor: float) -> Quaternion:
+        return Quaternion(self._q, self._t * scale_factor)
+
+
+def rot_to_quat(
+    rot: torch.Tensor,
+):
+    if(rot.shape[-2:] != (3, 3)):
+        raise ValueError("Input rotation is incorrectly shaped")
+
+    rot = [[rot[..., i, j] for j in range(3)] for i in range(3)]
+    [[xx, xy, xz], [yx, yy, yz], [zx, zy, zz]] = rot 
+
+    k = [
+        [ xx + yy + zz,      zy - yz,      xz - zx,      yx - xy,],
+        [      zy - yz, xx - yy - zz,      xy + yx,      xz + zx,],
+        [      xz - zx,      xy + yx, yy - xx - zz,      yz + zy,],
+        [      yx - xy,      xz + zx,      yz + zy, zz - xx - yy,]
+    ]
+
+    k = (1./3.) * torch.stack([torch.stack(t, dim=-1) for t in k], dim=-2)
+
+    _, vectors = torch.linalg.eigh(k)
+    return vectors[..., -1]

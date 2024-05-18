@@ -41,17 +41,19 @@ def get_pdb(filename):
     return chains
 
 
-def recursive_perm(intervals, cur_idx=0):
+def recursive_perm(intervals, cur_idx=0, max_permutations=None):
     if cur_idx >= len(intervals):
         return [()]
     ret = []
     for cur_perm in permutations(intervals[cur_idx]):
-        for right in recursive_perm(intervals, cur_idx + 1):
+        for right in recursive_perm(intervals, cur_idx + 1, max_permutations):
             ret.append(cur_perm + right)
+            if  max_permutations is not None and len(ret) > max_permutations:
+                assert False, f"Too many permutations"
     return ret
 
 
-def generate_perm(entity):
+def generate_perm(entity, max_permutations=None):
     intervals = []
     pre_eid = -1
     for i, eid in enumerate(entity):
@@ -59,7 +61,7 @@ def generate_perm(entity):
             intervals.append([])
         intervals[-1].append(i)
         pre_eid = eid
-    return recursive_perm(intervals)
+    return recursive_perm(intervals, max_permutations=max_permutations)
 
 
 def get_coords(gt, pred):
@@ -69,7 +71,9 @@ def get_coords(gt, pred):
         for r in gt[i]:
             if gt[i][r]["resname"] == "UNK":
                 continue
-            assert r in pred[i]
+            # assert r in pred[i]
+            if r not in pred[i]:
+                return None, None 
             if "CA" in gt[i][r]["atoms"] and "CA" in pred[i][r]["atoms"]:
                 gt_coords.append(gt[i][r]["atoms"]["CA"])
                 pred_coords.append(pred[i][r]["atoms"]["CA"])
@@ -172,7 +176,7 @@ def compute_monomer(gt_pdb, pred_pdb):
     }
 
 
-def compute_multimer(gt_pdb, pred_pdb, entity, max_permutations=120):
+def compute_multimer(name, gt_pdb, pred_pdb, entity, max_permutations=120):
     """
     Compute multimer metrics
     : param gt_pdb: ground truth pdb file
@@ -188,7 +192,7 @@ def compute_multimer(gt_pdb, pred_pdb, entity, max_permutations=120):
     best_lddt = 0
     best_gdt_ts = 0
     best_gdt_ha = 0
-    perms = generate_perm(entity)
+    perms = generate_perm(entity, max_permutations)
     if len(perms) > max_permutations:
         assert False, f"Too many permutations for {name}"
     for indices in perms:
@@ -196,6 +200,8 @@ def compute_multimer(gt_pdb, pred_pdb, entity, max_permutations=120):
         for i in indices:
             cur_pred.append(pred[i])
         gt_coords, pred_coords = get_coords(gt, cur_pred)
+        if gt_coords is None:
+            continue
         r, x = get_optimal_transform(pred_coords, gt_coords)
         pred_coords = pred_coords @ r + x
         cur_rmsd = compute_rmsd(gt_coords, pred_coords)

@@ -144,12 +144,15 @@ def fape_loss(
         loss_dict["fape"] = bb_loss[-1].data
         bb_loss = torch.mean(bb_loss, dim=0)
 
-    sc_loss = sidechain_loss(
-        out["sm"]["sidechain_frames"],
-        out["sm"]["positions"],
-        **{**batch, **config.sidechain},
-    )
-    loss_dict["sc_fape"] = sc_loss.data
-    loss = config.backbone.weight * bb_loss + config.sidechain.weight * sc_loss
+    if config.sidechain.weight > 0.:    # make sc loss optional
+        sc_loss = sidechain_loss(
+            out["sm"]["sidechain_frames"],
+            out["sm"]["positions"],
+            **{**batch, **config.sidechain},
+        )
+        loss_dict["sc_fape"] = sc_loss.data
+        loss = config.backbone.weight * bb_loss + config.sidechain.weight * sc_loss
+    else:
+        loss = config.backbone.weight * bb_loss
 
     return loss
