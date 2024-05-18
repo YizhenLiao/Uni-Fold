@@ -465,8 +465,8 @@ The keyword arguments are illustrated in ufconf/README.md.
         help="chunk size of the model"
     )
     parser.add_argument(
-        "--model", type=str, default="ufconf_af2_v3",
-        help="the name of the model. (default: `ufconf_af2_v3`)."
+        "--model", type=str, default="ufconf_af2_v3_c",
+        help="the name of the model. (default: `ufconf_af2_v3_c`)."
     )
     parser.add_argument(
         "--data_path", type=str, default="/mnt/vepfs/fs_projects/unifold/data_0916/traineval/",

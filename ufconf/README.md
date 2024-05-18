@@ -35,7 +35,7 @@ python run_ufconf_interpolate.py -t example_diffold/2dn1_2dn2_from_pdb.json -i i
 
 ## Create new conda enviroment
 ```bash
-conda create -n dfv6 python=3.9
+conda create -n diffold python=3.9
 ```
 
 ## Based on your cuda version, install Pytorch (Using china image if necessary)
@@ -49,7 +49,7 @@ pip install -r requirement.txt
 ```
 If you intend to compile on your slurm machine, connect to a GPU node,cd to Uni-core dir and then
 ```bash
-pip install .
+python setup.py install
 ```
 
 ## Clone diffold repository and install
@@ -60,6 +60,7 @@ pip install .
 ## Install other packages for result postprocessing
 ```bash
 pip install MDAnalysis matplotlib
+pip install biopython==1.81
 conda install mdtraj -c conda-forge
 ```
 
