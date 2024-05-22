@@ -4,10 +4,12 @@
 
 [[UF-Symmetry bioRxiv](https://www.biorxiv.org/content/10.1101/2022.08.30.505833)]
 
+[[UFConf bioRxiv](https://www.biorxiv.org/content/10.1101/2024.05.20.594916v1)]
 
 ---
 
 ## NEWEST in Uni-Fold
+[2024-05-22] We released the code of Uni-Fold Conformer (UFConf), a diffusion-based conformation sampling method. The details of UFConf can be found in [bioRxiv: Accurate Conformation Sampling via Protein Structural Diffusion](https://www.biorxiv.org/content/10.1101/2024.05.20.594916v1). The code of UFConf is concentrated in the folder [`ufconf`](./ufconf).
 
 [2023-09-21] Quick try of Uni-Fold at [Bohrium Apps](https://app.bohrium.dp.tech/uni-fold/)! Check [here](https://github.com/dptech-corp/Uni-Fold/issues/131) for details.
 
@@ -280,6 +282,10 @@ bash run_uf_symmetry.sh \
 
 to inference with UF-Symmetry. **Note that the input FASTA file should contain the sequences of the asymmetric unit only, and a symmetry group must be specified for the model.**
 
+## Run UFConf
+
+To run UFConf, please go to [`ufconf README`](./ufconf/README.md).
+
 ## Generate MSA/Template Features with MMSeqs2
 
 Uni-Fold now allows batch inference for MSA/Template search with MMSeqs2. Run
@@ -339,6 +345,23 @@ If you use the relative utilities of UF-Symmetry, please cite
 	eprint = {https://www.biorxiv.org/content/early/2022/08/30/2022.08.30.505833.full.pdf},
 	journal = {bioRxiv}
 }
+```
+
+If you use the relative utilities of UFConf, please cite
+
+```bibtex
+@article {ufconf,
+	author = {Fan, Jiahao and Li, Ziyao and Alcaide, Eric and Ke, Guolin and Huang, Huaqing and E, Weinan},
+	title = {Accurate Conformation Sampling via Protein Structural Diffusion},
+	elocation-id = {2024.05.20.594916},
+	year = {2024},
+	doi = {10.1101/2024.05.20.594916},
+	publisher = {Cold Spring Harbor Laboratory},
+	URL = {https://www.biorxiv.org/content/early/2024/05/21/2024.05.20.594916},
+	eprint = {https://www.biorxiv.org/content/early/2024/05/21/2024.05.20.594916.full.pdf},
+	journal = {bioRxiv}
+}
+
 ```
 
 ## Acknowledgements

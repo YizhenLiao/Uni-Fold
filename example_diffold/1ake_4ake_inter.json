@@ -1,0 +1,20 @@
+{
+    "1ake": {
+        "pdb": "1AKE_A",
+        "other_pdb": "4AKE_A",
+        "initial_t": 0.3,
+        "num_replica": 5,
+        "num_steps": 10,
+        "inf_steps": 10,
+        "save_trajectory": true
+    },
+    "4ake": {
+        "pdb": "4AKE_A",
+        "other_pdb": "1AKE_A",
+        "initial_t": 0.3,
+        "num_replica": 5,
+        "num_steps": 10,
+        "inf_steps": 10,
+        "save_trajectory": true
+    }
+}

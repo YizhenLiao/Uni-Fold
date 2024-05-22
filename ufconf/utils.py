@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 from numpy import ndarray
+import time
+import copy
 import json
 import os
 import pickle
@@ -25,6 +27,7 @@ from unicore.data.data_utils import numpy_seed
 from ufconf.diffuse_ops import rbf_kernel,make_noisy_quats
 from ufconf.diffusion.diffuser import angles_to_sin_cos, sin_cos_to_angles
 from unifold.losses.geometry import kabsch_rotation as kabsch
+from unifold.dataset import UnifoldDataset
 
 from absl import logging
 logging.set_verbosity("info")
@@ -35,6 +38,125 @@ n_ca_c_trans = torch.tensor(
      [1.5260, -0.0000, -0.0000]],
     dtype=torch.float,
 )
+
+def setup_directories(args, job_name, Job, mode = "denoise"):
+    """
+    Sets up and returns the paths for the main output directory, trajectory output directory, and features directory.
+
+    Args:
+        args: Parsed command-line arguments.
+        job_name (str): Name of the current job.
+        Job (dict): Configuration dictionary for the current job.
+
+    Returns:
+        tuple: A tuple containing paths to the output directory, trajectory directory, and features directory.
+    """
+
+    # Main output directory, named based on job details
+    if mode == "denoise":
+        output_dir = os.path.join(args.outputs, job_name, f"tem{Job['initial_t']}_rep{Job['num_replica']}_inf{Job['inf_steps']}")
+    elif mode == "langevin":
+        output_dir = os.path.join(args.outputs, job_name, f"tem{Job['initial_t']}_rep{Job['num_replica']}_num{Job['num_steps']}_inf{Job['inf_steps']}")
+    else:
+        raise ValueError("Invalid mode, provide either denoise or langevin.")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Directory for trajectory outputs
+    output_traj_dir = os.path.join(output_dir, "traj")
+    os.makedirs(output_traj_dir, exist_ok=True)
+
+    # Directory for features
+    dir_feat_name = os.path.join(args.outputs, job_name, 'features')
+    os.makedirs(dir_feat_name, exist_ok=True)
+
+    return output_dir, output_traj_dir, dir_feat_name
+
+def save_config_json(checkpoint_path, output_dir, Job):
+    """
+    Saves the job configuration to a JSON file in the output directory.
+
+    Args:
+        checkpoint_path (str): Path to the model checkpoint.
+        output_dir (str): Directory where the output is to be saved.
+        Job (dict): Configuration dictionary for the current job.
+    """
+    config_data = {
+        "timestamp": time.strftime("%Y-%m-%d;%H:%M:%S", time.localtime()),
+        "diffusion_t": Job["initial_t"],
+        "checkpoint": checkpoint_path
+    }
+
+    # Define the file path
+    config_file_path = os.path.join(output_dir, "config.json")
+
+    # Writing the configuration data to the JSON file
+    with open(config_file_path, 'w') as config_file:
+        json.dump(config_data, config_file, indent=2)
+        
+def prepare_features(feat, Job):
+    """
+    Prepares features based on the job configuration.
+
+    Args:
+        feat (dict): Dictionary containing the initial feature data.
+        Job (dict): Configuration dictionary for the current job.
+
+    Returns:
+        tuple: A tuple containing the modified feature dictionary and the residue list.
+    """
+
+    # Deep copy of the feature dictionary to avoid modifying the original
+    featd = copy.deepcopy(feat)
+    featd["diffusion_t"] = torch.tensor([Job["initial_t"]])
+    featd["true_frame_tensor"] = featd["true_frame_tensor"].squeeze()
+
+    # Handling residue indices if specified in Job configuration
+    residue_list = None
+    if "residue_idx" in Job:
+        residue_list = []
+        for part in Job["residue_idx"].split("/"):
+            residue_idx = part.split("-")
+            residue_indices = [int(i) for i in residue_idx]
+            residue_list.append(residue_indices)
+
+    # Generating mask for residues to be generated
+    is_gen = torch.zeros_like(feat["frame_mask"])
+    if residue_list is not None:
+        for start, end in residue_list:
+            is_gen[:, start:end + 1] = 1.
+    else:
+        is_gen = torch.ones_like(feat["frame_mask"])
+    featd["frame_gen_mask"] = feat["frame_mask"] * is_gen
+
+    return featd, residue_list
+        
+def prepare_batch(featd, lab, args):
+    """
+    Prepares the batch for processing by collating feature data and labels and transferring to the specified device.
+
+    Args:
+        featd (dict): Modified feature dictionary for a specific job and replica.
+        lab (dict): Labels corresponding to the feature data.
+        args: Parsed command-line arguments containing device information.
+
+    Returns:
+        dict: The batch data ready for processing, transferred to the specified device.
+    """
+
+    # Collate the features into a batch
+    batch = UnifoldDataset.collater([featd])
+
+    # Transfer batch data to the specified device (e.g., GPU)
+    batch_device = {k: torch.as_tensor(v, device=args.device) for k, v in batch.items()}
+
+    # Include additional batch data from labels
+    chain_id_list = []
+    for chain_index in range(len(lab)):
+        chain_id = torch.tensor([chain_index + 1] * lab[chain_index]["aatype"].shape[0], device=args.device)
+        chain_id_list.append(chain_id)
+    batch_device["chain_id"] = torch.cat(chain_id_list, dim=0)
+
+    return batch_device
 
 # handle pdb format files
 def get_pdb(filename):

@@ -1,34 +1,30 @@
 # How to run the inference code
-all the inference scripts are in `notebooks` directory.
+All the inference scripts are in `inference_scripts` directory. All scripts are run on GPU by default, if you want to run the scripts on cpu, you should set the flag by `--device "cpu"`.
 ### denoise mode
-* `run_ufconf_denoise.py`: Runs the full backward process, controled by the argument `--from_pdb`.
+* `run_ufconf_denoise.py`: Runs the full backward process.
 
-In default the argument `--from_pdb` is not set, the script will be run with the downloaded dataset **in the volcano engine** for all the PDB files and MSA files in the path provided by argument `--data_path`(default is `/mnt/vepfs/fs_projects/unifold/data_0916/traineval/`) and writes to PDB file. The running parameters (`num_replicas`, `protein ID`...) are defined in the JSON file specified by `-t` argument.  The model (.pt checkpoint) used for inference is specified by `-c`.
-
-If the argument `--from_pdb` is set, the script will be run for a PDB file (will download MSA if needed). The pdb path is specified by the argument `-i` or `--input_pdbs`. The pdb name is specified by the `pdb` param in the JSON input.
+The running parameters (`num_replicas`, `protein ID`...) are defined in the JSON file specified by `-t` argument.  The model (`.pt` checkpoint) used for inference is specified by `-c`. 
+In default the script will be run with the input PDB file (will download MSA if needed), The pdb path is specified by the argument `-i` or `--input_pdbs`. The pdb name is specified by the `pdb` param in the JSON input. If you provide the input structure in `.cif` format, the argument `--from_cif` should be set. 
 
 To run the script:
 ```bash
-python run_ufconf_denoise.py -t example_diffold/1ake_dataset_monomer.json -c checkpoint.pt -o ./ufconf_out
-python run_ufconf_denoise.py -t example_diffold/1ake_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out --from_pdb
+python run_ufconf_denoise.py -t example_diffold/1ake_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out
 ```
 
 ### langevin mode
-* `run_ufconf_langevin.py`:  Runs langevin dynamics from a predefined diffusion timestep in the JSON file (MD-like), controled by the argument `--from_pdb`. This is to test the *correlated sampling* of the model besides diffusion dynamics, which is *uncorrelated sampling*.  
+* `run_ufconf_langevin.py`:  Runs langevin dynamics from a predefined diffusion timestep in the JSON file (MD-like). This is to test the *correlated sampling* of the model besides diffusion dynamics, which is *uncorrelated sampling*.  
 
 To run the script:
 ```bash
-python run_ufconf_langevin.py -t example_diffold/1ake_dataset_monomer.json -c checkpoint.pt -o ./ufconf_out
-python run_ufconf_langevin.py -t example_diffold/1ake_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out --from_pdb
+python run_ufconf_langevin.py -t example_diffold/1ake_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out
 ```
 
 ### interpolation mode
-* `run_ufconf_interpolate.py`: Runs the interpolation inference between 2 pdbs (from A -> B) where the order is defined in the JSON input file, controled by the argument `--from_pdb`. 
+* `run_ufconf_interpolate.py`: Runs the interpolation inference between 2 pdbs (from A -> B) where the order is defined in the JSON input file.
 
 To run the script:
 ```bash
-python run_ufconf_interpolate.py -t example_diffold/2dn1_2dn2_dataset.json -c checkpoint.pt -o ./ufconf_out
-python run_ufconf_interpolate.py -t example_diffold/2dn1_2dn2_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out --from_pdb
+python run_ufconf_interpolate.py -t example_diffold/1ake_4ake_inter.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out
 ```
 
 # Installation
@@ -52,7 +48,7 @@ If you intend to compile on your slurm machine, connect to a GPU node,cd to Uni-
 python setup.py install
 ```
 
-## Clone diffold repository and install
+## Clone Uni-Fold repository and install
 ```bash
 pip install .
 ```
