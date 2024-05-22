@@ -159,7 +159,6 @@ def main(args):
         - device (str): The device to run the model on (e.g., 'cuda:0').
         - chunk_size (str): Chunk size for processing.
         - model (str): Name of the ufconf model to use.
-        - data_path (str): Path to the dataset containing PDB and MSA data.
         - data_idx (str): Index to specify the random seed for MSA.
         - from_pdb (bool): Flag to indicate whether to run inference with on-the-fly generated MSA.
         - bf16 (bool): Flag to indicate the use of bfloat16 precision.
@@ -200,13 +199,13 @@ def main(args):
         
         # use existing PDB and MSA datasets to get all the features and labels for query Protein ID
         if not args.from_pdb:
-            feat_raw, all_chain_labels = utils.load_features_from_lmdb(args, config, Job, job_name)
+            print(f"Please provide valid flag: 'from_pdb'.")
         # If use `from_pdb` flag, then generate MSA on the fly, get all the features and labels for query PDB file
         else:
             for attempt in range(max_retries):
                 try:
                     # Attempt to load the features
-                    feat_raw, all_chain_labels = utils.load_features_from_pdb(args, config, Job, dir_feat_name)
+                    feat_raw, all_chain_labels = utils.load_features_from_pdb(args, Job, dir_feat_name)
                     break  # If successful, exit the loop
                 except Exception as e:  # Catching a general exception
                     if attempt < max_retries - 1:
@@ -467,10 +466,6 @@ The keyword arguments are illustrated in ufconf/README.md.
     parser.add_argument(
         "--model", type=str, default="ufconf_af2_v3_c",
         help="the name of the model. (default: `ufconf_af2_v3_c`)."
-    )
-    parser.add_argument(
-        "--data_path", type=str, default="/mnt/vepfs/fs_projects/unifold/data_0916/traineval/",
-        help="the path for the downloaded PDB and MSA dataset"
     )
     parser.add_argument(
         "--data_idx", type=str, default="0",

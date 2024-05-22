@@ -575,92 +575,13 @@ def model_config(name, train=False):
         c = ufconf_af2_v3(c)
         c.loss.violation.weight = 0.5
         c.data.train.crop_size = 384
-    elif name == "ufconf_af2_v3_ftnx":
-        c = ufconf_af2_v3(c)
-        c.loss.violation.weight = 0.5
-        c.data.train.crop_size = 384
-        c.model.use_x_prev_first = False
-    elif name == "ufconf_af2_v3_ftlx":
-        c = ufconf_af2_v3(c)
-        c.loss.violation.weight = 0.5
-        c.data.train.crop_size = 384
-        c.model.use_x_prev_first = False
-        c.model.use_x_prev_last = True
     elif name == "ufconf_af2_v3_b":
         c = ufconf_af2_v3_b(c)
-    elif name == "ufconf_af2_v3_b2":
-        c = ufconf_af2_v3_b2(c)
-    elif name == "ufconf_af2_v3_b2_nomsa":
-        c = ufconf_af2_v3_b2(c)
-        c = nomsa(c)
-    elif name == "ufconf_af2_v3_b3_fast":
-        c = ufconf_af2_v3_b3(c)
-        c = fast(c)
-    elif name == "ufconf_af2_v3_b3_veryfast":
-        c = ufconf_af2_v3_b3(c)
-        c = veryfast(c)
-    elif name == "ufconf_af2_v3_b3_veryfast_nomask":
-        c = ufconf_af2_v3_b3(c)
-        c = veryfast(c)
-        c = close_masked_msa(c)
-    elif name == "ufconf_af2_v3_b4_fjh":
-        c = ufconf_af2_v3_b4_fjh(c)
-    elif name == "ufconf_af2_v3_b5_fjh":
-        c = ufconf_af2_v3_b5_fjh(c)
-    elif name == "ufconf_af2_v3_b6_fjh":
-        c = ufconf_af2_v3_b6_fjh(c)
-    elif name == "ufconf_af2_v3_b7_fjh":
-        c = ufconf_af2_v3_b7_fjh(c)
-    elif name == "ufconf_af2_v3_b8_fjh":
-        c = ufconf_af2_v3_b8_fjh(c)
-    elif name == "ufconf_af2_v3_b1p_nomsav2":
-        c = ufconf_af2_v3_b1p(c)
-        c = nomsa_v2(c)
-    elif name == "ufconf_af2_v3_b1pf_nomsav2":
-        c = ufconf_af2_v3_b1p(c)
-        c = nomsa_v2(c)
-        c.loss.time_scaling_coef_a = 3.5
-    elif name == "ufconf_af2_v3_b1pf":
-        c = ufconf_af2_v3_b1p(c)
-        c.loss.time_scaling_coef_a = 3.5
-    elif name == "ufconf_af2_v3_b3_nomsav2":
-        c = ufconf_af2_v3_b3(c)
-        c = nomsa_v2(c)
-    elif name == "ufconf_af2_v3_b4_nomsav2":
-        c = ufconf_af2_v3_b4(c)
-        c = nomsa_v2(c)
-    elif name == "ufconf_af2_v3_b4_veryfast":
-        c = ufconf_af2_v3_b4(c)
-        c = veryfast(c)
     elif name == "ufconf_af2_v3_c":
         c = ufconf_af2_v3_c(c)
-    elif name == "ufconf_af2_v3_c_256":
-        c = ufconf_af2_v3_c(c)
-        recursive_set(c, "max_msa_clusters", 256)
-        recursive_set(c, "max_extra_msa", 1024)
-    elif name == "ufconf_af2_v3_c_128":
-        c = ufconf_af2_v3_c(c)
-        recursive_set(c, "max_msa_clusters", 128)
-        recursive_set(c, "max_extra_msa", 512)
-    elif name == "ufconf_af2_v3_c_64":
-        c = ufconf_af2_v3_c(c)
-        recursive_set(c, "max_msa_clusters", 64)
-        recursive_set(c, "max_extra_msa", 256)
-    elif name == "ufconf_af2_v3_c_32":
-        c = ufconf_af2_v3_c(c)
-        recursive_set(c, "max_msa_clusters", 32)
-        recursive_set(c, "max_extra_msa", 128)
-    elif name == "ufconf_af2_v3_c_fast":
-        c = ufconf_af2_v3_c(c)
-        c = fast(c)
     elif name == "ufconf_af2_v3_c_tor":
         c = ufconf_af2_v3_c(c)
         c = tordiff(c)
-    elif name == "ufconf_af2_v3_c_tor_64":
-        c = ufconf_af2_v3_c(c)
-        c = tordiff(c)
-        recursive_set(c, "max_msa_clusters", 64)
-        recursive_set(c, "max_extra_msa", 256)
     elif name == "ufconf_af2_v3_c_v2w":
         c = ufconf_af2_v3_c(c)
         c.data.common.use_v2_weight = True
@@ -668,30 +589,6 @@ def model_config(name, train=False):
         c = ufconf_af2_v3_c(c)
         c = tordiff(c)
         c.data.common.use_v2_weight = True
-    elif name == "ufconf_af2_v3_c_tor_v2w_256":
-        c = ufconf_af2_v3_c(c)
-        c = tordiff(c)
-        c.data.common.use_v2_weight = True
-        recursive_set(c, "max_msa_clusters", 256)
-        recursive_set(c, "max_extra_msa", 1024)
-    elif name == "ufconf_af2_v3_c_tor_v2w_128":
-        c = ufconf_af2_v3_c(c)
-        c = tordiff(c)
-        c.data.common.use_v2_weight = True
-        recursive_set(c, "max_msa_clusters", 128)
-        recursive_set(c, "max_extra_msa", 512)
-    elif name == "ufconf_af2_v3_c_tor_v2w_64":
-        c = ufconf_af2_v3_c(c)
-        c = tordiff(c)
-        c.data.common.use_v2_weight = True
-        recursive_set(c, "max_msa_clusters", 64)
-        recursive_set(c, "max_extra_msa", 256)
-    elif name == "ufconf_af2_v3_c_tor_v2w_32":
-        c = ufconf_af2_v3_c(c)
-        c = tordiff(c)
-        c.data.common.use_v2_weight = True
-        recursive_set(c, "max_msa_clusters", 32)
-        recursive_set(c, "max_extra_msa", 128)
     else:
         raise ValueError(f"invalid --model-name: {name}.")
 
@@ -748,127 +645,6 @@ def ufconf_af2_v3_b(c):
     # 1. remove self distillation training.
     # 2. use UnifoldDataset to correctly sampling monomers.
     # 3. implemented multimer dataset correctly (ctrl.ed via finetune_ufconf.sh)
-    return c
-
-def ufconf_af2_v3_b1p(c):
-    c = ufconf_af2_v3(c)
-    # new diffusion curation (check notebooks/test_diffusion_scheme.ipynb)
-    c.diffusion.position.kernel = "ddpm"
-    c.diffusion.position.params = (0.01, 1.5)
-    # lower global atom error weight (as a guidance loss to learn optimal aligment, while keeping main acc ctrl.ed by fape.)
-    c.loss.global_atom_error.weight = 0.1
-    # add time scaling (scale down loss at t->1. Therefore ~10x learning rate (1e-3) can be applied.)
-    recursive_set(c, "time_scaling", 0.01)
-    c.loss.time_scaling_coef_a = 0.5
-    # use spatial crop only
-    recursive_set(c, "spatial_crop_prob", 1.0)
-    c.loss.update_penalty.weight = 0.1
-    # other changes:
-    # 1. remove self distillation training.
-    # 2. use UnifoldDataset to correctly sampling monomers.
-    # 3. implemented multimer dataset correctly (ctrl.ed via finetune_ufconf.sh)
-    return c
-
-def ufconf_af2_v3_b2(c):
-    c = ufconf_af2_v3_b(c)
-    # slower noise growth
-    c.diffusion.position.params = (0.01, 2.0)
-    # encourage variance
-    c.loss.update_penalty.weight = 0.1
-    # add time scaling (scale down loss at t->1. Therefore ~10x learning rate (1e-3) can be applied.)
-    recursive_set(c, "time_scaling", 0.2)
-    c.loss.global_atom_error.time_scaling = 0.01
-    # use spatial crop only
-    recursive_set(c, "spatial_crop_prob", 1.0)
-    c.loss.time_scaling_coef_a = 0.5
-    return c
-
-def ufconf_af2_v3_b3(c):
-    # truncate diffusion to [0, 0.6]
-    c = ufconf_af2_v3_b2(c)
-    c.diffusion.max_diffusion_t = 0.6
-    return c
-
-def ufconf_af2_v3_b4_fjh(c):
-    c = ufconf_af2_v3_b(c)
-    # add time scaling (scale down loss at t->1. Therefore ~10x learning rate (1e-3) can be applied.)
-    recursive_set(c, "time_scaling", 0.01)
-    return c
-
-def ufconf_af2_v3_b5_fjh(c):
-    c = ufconf_af2_v3_b(c)
-    # slower noise growth
-    c.diffusion.position.coef_a = 2.0
-    # encourage variance
-    c.loss.update_penalty.weight = 0.1
-    return c
-
-def ufconf_af2_v3_b6_fjh(c):
-    c = ufconf_af2_v3_b(c)
-    # add time scaling (scale down loss at t->1. Therefore ~10x learning rate (1e-3) can be applied.)
-    recursive_set(c, "time_scaling", 0.05)
-    return c
-
-def ufconf_af2_v3_b7_fjh(c):
-    c = ufconf_af2_v3_b(c)
-    # slower noise growth
-    c.diffusion.position.coef_a = 2.0
-    return c
-
-def ufconf_af2_v3_b8_fjh(c):
-    c = ufconf_af2_v3_b(c)
-    # add time scaling (scale down loss at t->1. Therefore ~10x learning rate (1e-3) can be applied.)
-    recursive_set(c, "time_scaling", 0.02)
-def ufconf_af2_v3_b4(c):
-    c = ufconf_af2_v3(c)
-    c.diffusion.position.kernel = "linear"
-    c.diffusion.position.params = (2.0, 0.2, 0.9, 0.7)
-    c.loss.global_atom_error.weight = 0.1
-    recursive_set(c, "spatial_crop_prob", 1.0)
-    c.loss.update_penalty.weight = 0.1
-    # add time scaling (scale down loss at t->1. Therefore ~10x learning rate (1e-3) can be applied.)
-    recursive_set(c, "time_scaling", 0.2)
-    c.loss.global_atom_error.time_scaling = 0.01
-    # use spatial crop only
-    c.loss.time_scaling_coef_a = 0.5
-    return c
-
-def nomsa(c):
-    c.data.common.use_msa = False
-    recursive_set(c, "max_msa_clusters", 1)
-    c.model.extra_msa.enabled = False
-    c.loss.masked_msa.weight = 0.0
-    c.model.heads.masked_msa.enabled = False
-    return c
-
-def fast(c):
-    recursive_set(c, "max_msa_clusters", 128)
-    recursive_set(c, "max_extra_msa", 512)
-    return c
-
-
-def veryfast(c):
-    recursive_set(c, "max_msa_clusters", 32)
-    recursive_set(c, "max_extra_msa", 128)
-    return c
-
-
-def close_masked_msa(c):
-    c.data.common.masked_msa.profile_prob = 0.0
-    c.data.common.masked_msa.same_prob = 0.0
-    c.data.common.masked_msa.uniform_prob = 0.0
-    c.model.heads.masked_msa.enabled = False
-    c.loss.masked_msa.weight = 0.0
-    return c
-
-def nomsa_v2(c):
-    c = close_masked_msa(c)
-    c.data.common.use_msa = False
-    c.data.common.use_self_as_extra_msa = True
-    recursive_set(c, "max_msa_clusters", 1)
-    recursive_set(c, "max_extra_msa", 1)
-    c.model.extra_msa.extra_msa_stack.no_col_attention = True
-    c.model.evoformer_stack.no_col_attention = True
     return c
 
 def ufconf_af2_v3_c(c):

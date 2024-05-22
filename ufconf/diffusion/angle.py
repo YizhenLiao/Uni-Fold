@@ -127,20 +127,3 @@ class IGSO3(nn.Module):
         )
 
         return grad_log_pdf
-
-
-def plot_pdf(path, fmt="png", **kwargs):
-    import matplotlib as mpl
-    import matplotlib.pyplot as plt
-    igso3 = IGSO3(**kwargs)
-
-    stds = torch.linspace(0.1, torch.pi, 10)
-    pdf = igso3.pdf(stds, normalize=True)
-
-    cmap =  mpl.colormaps["rainbow"]
-    for s, pdf_i in zip(stds, pdf):
-        plt.plot(igso3.omegas.numpy(), pdf_i.numpy(), color=cmap(float(s)/torch.pi))
-
-    plt.title("igso3 pdf colored by sigma")
-    plt.tight_layout()
-    plt.savefig(path, format=fmt)

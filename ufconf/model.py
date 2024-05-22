@@ -1,6 +1,5 @@
 from unifold.model import *
 from .diffold import Diffold
-from .dataset import DiffoldDataset
 from .config import model_config
 
 @register_model("ufconf")

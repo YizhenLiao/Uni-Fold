@@ -18,7 +18,7 @@ from setuptools import setup
 
 setup(
     name="unifold",
-    version="2.2.1.0", # after #25 split features and change to lmdb
+    version="2.3.0",
     description="An open-source platform for developing protein folding models beyond AlphaFold.",
     author="DP Technology",
     author_email="unifold@dp.tech",

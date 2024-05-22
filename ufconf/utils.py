@@ -1,26 +1,30 @@
 import torch
 import numpy as np
 from numpy import ndarray
-from unifold.modules.frame import Frame, Rotation
+import json
+import os
+import pickle
+import gzip
+import urllib
+import io
+from Bio.PDB.MMCIFParser import MMCIFParser
+from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+from typing import Optional
+from Bio.PDB import PDBParser
 import torch.nn.functional as F
+from unifold.modules.frame import Frame, Rotation
 from unicore.utils import tensor_tree_map
 from unifold.data.protein import Protein, to_pdb, from_feature, from_prediction
 from ufconf.diffold import Diffold
 from ufconf.diffusion import so3
 from ufconf.config import model_config
 from ufconf.diffusion.diffuser import frames_to_r_p, r_p_to_frames
-from unifold.data.lmdb_dataset import LMDBDataset
-from unifold.dataset import load_and_process, process
-import json
-import os
-import pickle
-import gzip
 from unifold.colab import make_input_features
 import unifold.data.residue_constants as rc
-from ufconf.dataset import load_pdb_feat, load_cif_feat
 from unicore.data.data_utils import numpy_seed
 from ufconf.diffuse_ops import rbf_kernel,make_noisy_quats
 from ufconf.diffusion.diffuser import angles_to_sin_cos, sin_cos_to_angles
+from unifold.losses.geometry import kabsch_rotation as kabsch
 
 from absl import logging
 logging.set_verbosity("info")
@@ -32,6 +36,189 @@ n_ca_c_trans = torch.tensor(
     dtype=torch.float,
 )
 
+# handle pdb format files
+def get_pdb(filename):
+    if not os.path.exists(filename):
+        print('pdb not exist, download ... ')
+        pdb_id = filename.split('/')[-1].split('.')[0]
+        url = f"https://files.rcsb.org/download/{pdb_id}.pdb"
+        urllib.request.urlretrieve(url, filename)
+        print(f'finish download {pdb_id}')
+    return filename
+
+def read_pdb(path, line_list=None):
+    with open(path, 'r') as f:
+        if line_list:
+            return  f.readlines()
+        else: return f.read() 
+
+def load_pdb_feat(filename):
+    pdb_file = get_pdb(filename)
+    return from_pdb_string(read_pdb(pdb_file))
+
+
+# add heteratom ?
+def from_pdb_string(pdb_str: str, chain_id: Optional[str] = None, No_model=0) -> dict:
+    """Takes a PDB string and constructs a Protein object.
+    #### NOTICE: the difference between `unifold/data/protein.py` is that here we return dict type.
+
+    WARNING: All non-standard residue types will be converted into UNK. All
+      non-standard atoms will be ignored.
+
+    Args:
+      pdb_str: The contents of the pdb file
+      chain_id: If chain_id is specified (e.g. A), then only that chain
+        is parsed. Otherwise all chains are parsed.
+
+    Returns:
+      A new `Protein` parsed from the pdb contents.
+    """
+    pdb_fh = io.StringIO(pdb_str)
+    parser = PDBParser(QUIET=True)
+    structure = parser.get_structure("none", pdb_fh)
+    models = list(structure.get_models())
+    if len(models) != 1:
+        if No_model == 0:
+            logger.warn(f'found {len(models)} models in the pdb, and using default model {No_model}, pease make sure you want No. `{No_model}` model in the pdb files.')
+    model = models[No_model]
+
+    atom_positions = []
+    aatype = []
+    atom_mask = []
+    residue_index = []
+    res_list_idx = []
+    chain_ids = []
+    b_factors = []
+    res_shortnames = []
+
+    for chain in model:
+        if chain_id is not None and chain.id != chain_id:
+            continue
+        for res_idx, res in enumerate(chain):
+            if res.id[2] != " ":
+                raise ValueError(
+                    f"PDB contains an insertion code at chain {chain.id} and residue " +
+                    f"index {res.id[1]}. These are not supported."
+                )
+            res_shortname = rc.restype_3to1.get(res.resname, "X")
+            res_shortnames.append(res_shortname)
+            restype_idx = rc.restype_order.get(
+                res_shortname, rc.restype_num
+            )
+            pos = np.zeros((rc.atom_type_num, 3))
+            mask = np.zeros((rc.atom_type_num,))
+            res_b_factors = np.zeros((rc.atom_type_num,))
+            for atom in res:
+                if atom.name not in rc.atom_types:
+                    continue
+                pos[rc.atom_order[atom.name]] = atom.coord
+                mask[rc.atom_order[atom.name]] = 1.0
+                res_b_factors[rc.atom_order[atom.name]] = atom.bfactor
+            # if np.sum(mask) < 0.5:    # keep
+            #     # If no known atom positions are reported for the residue then skip it.
+            #     continue
+            aatype.append(restype_idx)
+            atom_positions.append(pos)
+            atom_mask.append(mask)
+            residue_index.append(res.id[1])
+            res_list_idx.append(res_idx)
+            chain_ids.append(chain.id)
+            b_factors.append(res_b_factors)
+
+    # Chain IDs are usually characters so map these to ints.
+    unique_chain_ids = np.unique(chain_ids)
+    chain_id_mapping = {cid: n for n, cid in enumerate(unique_chain_ids)}
+    chain_index = np.array([chain_id_mapping[cid] for cid in chain_ids])
+    chain_index_map = [(c, r, i) for c,r,i in zip(chain_ids, residue_index, res_list_idx)]
+
+    return {
+        'all_atom_positions' : np.array(atom_positions),
+        'all_atom_mask' : np.array(atom_mask),
+        'aatype' : np.array(aatype),
+        'residue_index' : np.array(residue_index),
+        'chain_index' : chain_index,
+        'pdb_idx' : chain_index_map,
+        'b_factors' : np.array(b_factors),
+        'res_seq' : np.array(res_shortnames)
+    }
+
+# handle cif format file
+def get_cif(filename):
+    if not os.path.exists(filename):
+        print('CIF file does not exist, downloading...')
+        pdb_id = filename.split('/')[-1].split('.')[0]
+        url = f"https://files.rcsb.org/download/{pdb_id}.cif"
+        urllib.request.urlretrieve(url, filename)
+        print(f'Finished downloading {pdb_id}')
+    return filename
+
+def load_cif_feat(filename,chain_id: Optional[str] = None):
+    cif_file = get_cif(filename)
+    mmcif_dict = MMCIF2Dict(cif_file)
+    
+    parser = MMCIFParser()
+    structure = parser.get_structure("none", cif_file)
+    model = next(structure.get_models())  # Assuming interest in the first model
+    
+    atom_positions = []
+    aatype = []
+    atom_mask = []
+    residue_index = []
+    res_list_idx = []
+    chain_ids = []
+    b_factors = []
+    res_shortnames = []
+
+    for chain in model:
+        if chain_id is not None and chain.id != chain_id:
+            continue
+        for res_idx, res in enumerate(chain):
+            # if res.id[2] != " ":
+            #     raise ValueError(
+            #         f"PDB contains an insertion code at chain {chain.id} and residue " +
+            #         f"index {res.id[1]}. These are not supported."
+            #     )
+            res_shortname = rc.restype_3to1.get(res.resname, "X")
+            res_shortnames.append(res_shortname)
+            restype_idx = rc.restype_order.get(
+                res_shortname, rc.restype_num
+            )
+            pos = np.zeros((rc.atom_type_num, 3))
+            mask = np.zeros((rc.atom_type_num,))
+            res_b_factors = np.zeros((rc.atom_type_num,))
+            for atom in res:
+                if atom.name not in rc.atom_types:
+                    continue
+                pos[rc.atom_order[atom.name]] = atom.coord
+                mask[rc.atom_order[atom.name]] = 1.0
+                res_b_factors[rc.atom_order[atom.name]] = atom.bfactor
+            # if np.sum(mask) < 0.5:    # keep
+            #     # If no known atom positions are reported for the residue then skip it.
+            #     continue
+            aatype.append(restype_idx)
+            atom_positions.append(pos)
+            atom_mask.append(mask)
+            residue_index.append(res.id[1])
+            res_list_idx.append(res_idx)
+            chain_ids.append(chain.id)
+            b_factors.append(res_b_factors)
+
+    # Chain IDs are usually characters so map these to ints.
+    unique_chain_ids = np.unique(chain_ids)
+    chain_id_mapping = {cid: n for n, cid in enumerate(unique_chain_ids)}
+    chain_index = np.array([chain_id_mapping[cid] for cid in chain_ids])
+    chain_index_map = [(c, r, i) for c,r,i in zip(chain_ids, residue_index, res_list_idx)]
+
+    return {
+        'all_atom_positions' : np.array(atom_positions),
+        'all_atom_mask' : np.array(atom_mask),
+        'aatype' : np.array(aatype),
+        'residue_index' : np.array(residue_index),
+        'chain_index' : chain_index,
+        'pdb_idx' : chain_index_map,
+        'b_factors' : np.array(b_factors),
+        'res_seq' : np.array(res_shortnames)
+    }
 
 def remove_center(*args, mask, eps=1e-12):
     inputs = [Frame.from_tensor_4x4(f) for f in args]
@@ -279,53 +466,6 @@ def make_output(batch, out=None):
         cur_protein = from_feature(features=batch)
         return cur_protein
 
-
-def kabsch(P: ndarray, Q: ndarray) -> ndarray:
-    """
-    Using the Kabsch algorithm with two sets of paired point P and Q, centered
-    around the centroid. Each vector set is represented as an NxD
-    matrix, where D is the the dimension of the space.
-    The algorithm works in three steps:
-    - a centroid translation of P and Q (assumed done before this function
-      call)
-    - the computation of a covariance matrix C
-    - computation of the optimal rotation matrix U
-    For more info see http://en.wikipedia.org/wiki/Kabsch_algorithm
-    Parameters
-    ----------
-    P : array
-        (N,D) matrix, where N is points and D is dimension.
-    Q : array
-        (N,D) matrix, where N is points and D is dimension.
-    Returns
-    -------
-    U : matrix
-        Rotation matrix (D,D)
-    """
-
-    # Computation of the covariance matrix
-    C = np.dot(np.transpose(P), Q)
-
-    # Computation of the optimal rotation matrix
-    # This can be done using singular value decomposition (SVD)
-    # Getting the sign of the det(V)*(W) to decide
-    # whether we need to correct our rotation matrix to ensure a
-    # right-handed coordinate system.
-    # And finally calculating the optimal rotation matrix U
-    # see http://en.wikipedia.org/wiki/Kabsch_algorithm
-    V, S, W = np.linalg.svd(C)
-    d = (np.linalg.det(V) * np.linalg.det(W)) < 0.0
-
-    if d:
-        S[-1] = -S[-1]
-        V[:, -1] = -V[:, -1]
-
-    # Create Rotation matrix U
-    U: ndarray = np.dot(V, W)
-
-    return U
-
-
 def kabsch_rotate(P: ndarray, Q: ndarray) -> ndarray:
     """
     Rotate matrix P unto matrix Q using Kabsch algorithm.
@@ -432,52 +572,7 @@ def compute_theta_translation(f_t: torch.Tensor, f_0: torch.Tensor, gamma: float
     translation = (p_t - gamma.sqrt() * p_0).cpu().numpy()
     return theta, translation
 
-
-def load_features_from_lmdb(args, config, Job, job_name):
-    data_path = args.data_path
-    feat_lmdb = LMDBDataset(data_path + "features.lmdb")
-    lab_lmdb = LMDBDataset(data_path + "labels.lmdb")
-    feat_id_map = json.load(open(data_path + "train_label_to_seq.json"))
-    sym_id_map = json.load(open(data_path + "train_mmcif_assembly.json"))
-    prot_id = Job["id"]
-    print("pdb id", prot_id)
-
-    lids = prot_id
-    if type(lids) is str:
-        lids = [lids]
-    sids = [feat_id_map[l] for l in lids]
-
-    if "is_monomer" not in Job:
-        is_monomer = True
-    else:
-        is_monomer = Job["is_monomer"]
-    if not is_monomer:
-        symmetry_operations = sym_id_map[job_name]["opers"]
-    else:
-        symmetry_operations = None
-
-    # preprocess the MSA in the downloaded MSA dataset
-    feat, lab = load_and_process(
-        config.data,
-        "predict",
-        batch_idx=0,
-        data_idx=int(args.data_idx),
-        sequence_ids=sids,
-        feature_dir=feat_lmdb,
-        msa_feature_dir=data_path + "msa_features",
-        template_feature_dir=data_path + "template_features",
-        uniprot_msa_feature_dir=data_path + "uniprot_features",
-        label_ids=lids,
-        label_dir=lab_lmdb,
-        symmetry_operations=symmetry_operations
-    )
-
-    # print out the number of chains of the protein
-    print("chain number", len(lab))
-    return feat, lab
-
-
-def load_features_from_pdb(args, config, Job, dir_feat_name, cif=False):
+def load_features_from_pdb(args, Job, dir_feat_name, cif=False):
     pdb_name = Job["pdb"]
     print("pdb name", pdb_name)
     if "symmetry_operations" in Job:
