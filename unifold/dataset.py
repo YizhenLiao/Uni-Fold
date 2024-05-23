@@ -144,6 +144,11 @@ def load_single_feature(
             all_seq_feature["deletion_matrix"] = all_seq_feature.pop(
                 "deletion_matrix_int"
             ).astype(np.float32)
+            
+        if "deletion_matrix_int" in chain_feature:
+            chain_feature["deletion_matrix"] = chain_feature.pop(
+                "deletion_matrix_int"
+            ).astype(np.float32)
 
         if is_monomer:
             chain_feature["msa"], chain_feature["deletion_matrix"] = merge_msas(
