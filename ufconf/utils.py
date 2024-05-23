@@ -609,7 +609,8 @@ def kabsch_rotate(P: ndarray, Q: ndarray) -> ndarray:
     U = kabsch(P, Q)
 
     # Rotate P
-    P = np.dot(P, U)
+    P = P @ U
+    # P = np.dot(P, U)
     return P, U
 
 

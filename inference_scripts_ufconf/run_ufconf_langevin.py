@@ -76,7 +76,7 @@ def process_replica(args, model, batch, diffuser, config, Job, output_traj_dir, 
             
             prediced_pos_aligned, U = utils.kabsch_rotate(predicted_pos, noisy_pos)
             prediced_pos_aligned = prediced_pos_aligned.reshape(1, batch["aatype"].shape[-1], -1, 3)
-            batch["all_atom_positions"] = torch.tensor(prediced_pos_aligned,device = args.device)
+            batch["all_atom_positions"] = prediced_pos_aligned
             out["final_atom_positions"] = batch["all_atom_positions"] 
             processed_protein = utils.atom37_to_backb_frames(batch, 1e-8)
             ret_frames = processed_protein["backb_frames"]
