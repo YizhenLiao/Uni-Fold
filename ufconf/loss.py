@@ -36,7 +36,7 @@ def global_atom_error(
 
 
 @register_loss("ufconf")
-class DiffoldLoss(AlphafoldLoss):
+class UFConfLoss(AlphafoldLoss):
     # TODO: see how we weight losses among different diffusion steps.
     @staticmethod
     def forward(model, batch, reduce=True):
@@ -55,7 +55,7 @@ class DiffoldLoss(AlphafoldLoss):
         # remove recyling dim
         batch = tensor_tree_map(lambda t: t[-1, ...], batch)
         
-        loss, sample_size, logging_output = DiffoldLoss.loss(out, batch, config)
+        loss, sample_size, logging_output = UFConfLoss.loss(out, batch, config)
         logging_output["num_recycling"] = num_recycling
         return loss, sample_size, logging_output
 

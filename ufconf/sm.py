@@ -16,7 +16,7 @@ class GatedLinear(nn.Module):
         return o
 
 
-class DiffoldSM(StructureModule):
+class UFConfSM(StructureModule):
     def __init__(self, d_time, d_single, d_pair, d_ipa, d_angle, num_heads_ipa, num_qk_points, num_v_points, dropout_rate, num_blocks, no_transition_layers, num_resnet_blocks, num_angles, trans_scale_factor, separate_kv, ipa_bias, epsilon, inf, **kwargs):
         super().__init__(d_single, d_pair, d_ipa, d_angle, num_heads_ipa, num_qk_points, num_v_points, dropout_rate, num_blocks, no_transition_layers, num_resnet_blocks, num_angles, trans_scale_factor, separate_kv, ipa_bias, epsilon, inf, **kwargs)
         self.gate_lin_time = GatedLinear(d_time, d_single, init="final")

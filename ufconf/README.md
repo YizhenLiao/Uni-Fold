@@ -8,7 +8,7 @@ In default the script will be run with the input PDB file (will download MSA if 
 
 To run the script:
 ```bash
-python run_ufconf_denoise.py -t example_diffold/1ake_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out
+python run_ufconf_denoise.py -t example_ufconf/1ake_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out
 ```
 
 ### langevin mode
@@ -16,7 +16,7 @@ python run_ufconf_denoise.py -t example_diffold/1ake_from_pdb.json -i input_pdbs
 
 To run the script:
 ```bash
-python run_ufconf_langevin.py -t example_diffold/1ake_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out
+python run_ufconf_langevin.py -t example_ufconf/1ake_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out
 ```
 
 ### interpolation mode
@@ -24,14 +24,14 @@ python run_ufconf_langevin.py -t example_diffold/1ake_from_pdb.json -i input_pdb
 
 To run the script:
 ```bash
-python run_ufconf_interpolate.py -t example_diffold/1ake_4ake_inter.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out
+python run_ufconf_interpolate.py -t example_ufconf/1ake_4ake_inter.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out
 ```
 
 # Installation
 
 ## Create new conda enviroment
 ```bash
-conda create -n diffold python=3.9
+conda create -n ufconf python=3.9
 ```
 
 ## Based on your cuda version, install Pytorch (Using china image if necessary)

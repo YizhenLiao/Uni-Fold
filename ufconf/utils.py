@@ -17,7 +17,7 @@ import torch.nn.functional as F
 from unifold.modules.frame import Frame, Rotation
 from unicore.utils import tensor_tree_map
 from unifold.data.protein import Protein, to_pdb, from_feature, from_prediction
-from ufconf.diffold import Diffold
+from ufconf.ufconf import UFConformer
 from ufconf.diffusion import so3
 from ufconf.config import model_config
 from ufconf.diffusion.diffuser import frames_to_r_p, r_p_to_frames
@@ -640,7 +640,7 @@ def interpolate_conf(ft_0: torch.Tensor, ft_1: torch.Tensor, num_steps: int) -> 
 def config_and_model(args):
     config = model_config(args.model, train=False)
     print("config keys", config.keys())
-    model = Diffold(config)
+    model = UFConformer(config)
 
     if args.checkpoint is not None:
         logging.info("start to load params {}".format(args.checkpoint))

@@ -5,7 +5,7 @@ import torch.utils.checkpoint
 from unifold.modules.evoformer import EvoformerStack, SimpleModuleList
 from unifold.modules.common import Linear, Resnet, ResnetBlock
 from unifold.modules.frame import Frame
-from .sm import DiffoldSM, GatedLinear
+from .sm import UFConfSM, GatedLinear
 
 
 class UFConfEvoformerStack(EvoformerStack):

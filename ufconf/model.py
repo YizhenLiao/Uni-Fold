@@ -1,9 +1,9 @@
 from unifold.model import *
-from .diffold import Diffold
+from .ufconf import UFConformer
 from .config import model_config
 
 @register_model("ufconf")
-class DiffoldModel(AlphafoldModel):
+class UFConfModel(AlphafoldModel):
     def __init__(self, args):
         super(AlphafoldModel, self).__init__()  # for BaseUnicoreModel
         base_architecture(args)
@@ -12,7 +12,7 @@ class DiffoldModel(AlphafoldModel):
             self.args.model_name,
             train=True,
         )
-        self.model = Diffold(config)
+        self.model = UFConformer(config)
         self.config = config
 
 @register_model_architecture("ufconf", "ufconf")
