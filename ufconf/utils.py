@@ -114,16 +114,18 @@ def prepare_features(feat, Job):
     residue_list = None
     if "residue_idx" in Job:
         residue_list = []
-        for part in Job["residue_idx"].split("/"):
-            residue_idx = part.split("-")
-            residue_indices = [int(i) for i in residue_idx]
-            residue_list.append(residue_indices)
+        if isinstance(Job["residue_idx"], str):
+            for part in Job["residue_idx"].split("/"):
+                residue_idx = part.split("-")
+                residue_indices = list(range(residue_idx[0], residue_idx[1] + 1))
+                residue_list.extend(residue_indices)
+        elif isinstance(Job["residue_idx"], list):
+            residue_list = [int(i) for i in Job["residue_idx"]]
 
     # Generating mask for residues to be generated
     is_gen = torch.zeros_like(feat["frame_mask"])
     if residue_list is not None:
-        for start, end in residue_list:
-            is_gen[:, start:end + 1] = 1.
+        is_gen[:, residue_list] = 1.
     else:
         is_gen = torch.ones_like(feat["frame_mask"])
     featd["frame_gen_mask"] = feat["frame_mask"] * is_gen
