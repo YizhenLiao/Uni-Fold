@@ -1,0 +1,12 @@
+{
+    "1ake": {
+        "fasta": "1AKE_A",
+        "pdb": "1AKE_A",
+        "other_pdb": "4AKE_A",
+        "initial_t": 1.0,
+        "num_replica": 5,
+        "num_steps": 10,
+        "inf_steps": 30,
+        "save_trajectory": true
+    }
+}

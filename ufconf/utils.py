@@ -151,13 +151,19 @@ def prepare_batch(featd, lab, args):
     # Transfer batch data to the specified device (e.g., GPU)
     batch_device = {k: torch.as_tensor(v, device=args.device) for k, v in batch.items()}
 
-    # Include additional batch data from labels
-    chain_id_list = []
-    for chain_index in range(len(lab)):
-        chain_id = torch.tensor([chain_index + 1] * lab[chain_index]["aatype"].shape[0], device=args.device)
+    if lab:
+        # Include additional batch data from labels
+        chain_id_list = []
+        for chain_index in range(len(lab)):
+            chain_id = torch.tensor([chain_index + 1] * lab[chain_index]["aatype"].shape[0], device=args.device)
+            chain_id_list.append(chain_id)
+        batch_device["chain_id"] = torch.cat(chain_id_list, dim=0)
+    else:
+        chain_id_list = []
+        chain_id = torch.tensor([1] * featd["aatype"].squeeze().shape[0], device=args.device)
         chain_id_list.append(chain_id)
-    batch_device["chain_id"] = torch.cat(chain_id_list, dim=0)
-
+        batch_device["chain_id"] = torch.cat(chain_id_list, dim=0)
+        
     return batch_device
 
 # handle pdb format files
@@ -822,3 +828,42 @@ def recur_print(x):
         return [recur_print(v) for v in x]
     else:
         raise RuntimeError(x)
+
+def load_features_from_fasta(args, Job, dir_feat_name=None):
+    fasta_name = Job["fasta"]
+    if "symmetry_operations" in Job:
+        symmetry_operations = Job["symmetry_operations"]
+    else:
+        symmetry_operations = None
+
+    # extract the seq from the input fasta file
+    fasta_path = os.path.join(args.input_pdbs, fasta_name + ".fasta")
+    with open(fasta_path, "r") as f:
+        seqs = f.readlines()[1].strip()
+    
+    # extract the chain ID from the input fasta file
+    chain_id = fasta_name.split("_")[-1]
+
+    # generate sequences from input features
+    seq_ids = [chain_id]
+    seqs = [seqs]
+    # # generate all the MSA for the given sequence
+    seqs, seq_ids, feat = make_input_features(
+        dir_feat_name,
+        seqs,
+        seq_ids,
+        msa_file_path=args.msa_file_path,
+        use_msa=True,
+        use_exist_msa=args.use_exist_msa,
+        use_templates=False,
+        verbose=True,
+        min_length=2,
+        max_length=2000,
+        max_total_length=3000,
+        is_monomer=False,
+        load_labels=False,
+        use_mmseqs_paired_msa=False,
+        symmetry_operations=symmetry_operations
+    )
+
+    return seqs, feat

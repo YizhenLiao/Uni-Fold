@@ -190,7 +190,25 @@ def main(args):
         output_dir, output_traj_dir, dir_feat_name = utils.setup_directories(args, job_name, Job, mode = "denoise")
         utils.save_config_json(checkpoint_path, output_dir, Job)
         # If use `from_cif` flag, then generate MSA based on the input cif file.
-        if args.from_cif:
+        if args.from_fasta:
+            print("loading features from fasta...")
+            for attempt in range(max_retries):
+                try:
+                    # Attempt to load the features
+                    seqs, feat_raw = utils.load_features_from_fasta(args, Job, dir_feat_name)
+                    all_chain_labels = None
+                    break  # If successful, exit the loop
+                except Exception as e:  # Catching a general exception
+                    if attempt < max_retries - 1:
+                        # If not the last attempt, wait and then retry
+                        print(f"EOFError encountered. Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                    else:
+                        # If it was the last attempt, re-raise the exception
+                        print("Maximum retries reached. Aborting.")
+                        raise
+        elif args.from_cif:
+            print("loading features from cif...")
             for attempt in range(max_retries):
                 try:
                     # Attempt to load the features
@@ -206,6 +224,7 @@ def main(args):
                         print("Maximum retries reached. Aborting.")
                         raise
         elif args.from_pdb:
+            print("loading features from pdb...")
             for attempt in range(max_retries):
                 try:
                     # Attempt to load the features
@@ -221,7 +240,7 @@ def main(args):
                         print("Maximum retries reached. Aborting.")
                         raise
         else:
-            print(f"Please provide valid flag: 'from_pdb' or 'from_cif'.")
+            print(f"Please provide valid flag: 'from_fasta, ''from_pdb' or 'from_cif'.")
             
         for replica in tqdm.tqdm(range(Job["num_replica"]), total=Job["num_replica"]) \
             if Job["num_replica"] >= 10 else range(Job["num_replica"]):
@@ -239,7 +258,8 @@ def main(args):
                 is_distillation=False
             )
             # print out the number of chains of the protein
-            print("chain number", len(lab))
+            if lab:
+                print("chain number", len(lab))
             featd, _ = utils.prepare_features(feat, Job)
             my_seed = random.randint(0, 1000000)  # Generate a random seed
             # my_seed = 10
@@ -313,8 +333,12 @@ if __name__ == "__main__":
         help="if set, then use existing MSA (default: not set)."
     )
     parser.add_argument(
-        "--from_pdb", action=argparse.BooleanOptionalAction, default=True,
-        help="if set, then running inference with MSA generated on the fly (default: set)."
+        "--from_fasta", action=argparse.BooleanOptionalAction, default=True,
+        help="if set, then running inference with the input seq (default: set)."
+    )
+    parser.add_argument(
+        "--from_pdb",  action="store_true",
+        help="if set, then running inference with MSA generated on the fly from pdb file (default: set)."
     )
     parser.add_argument(
         "--from_cif", action="store_true",

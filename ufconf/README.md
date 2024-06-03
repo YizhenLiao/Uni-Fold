@@ -4,11 +4,16 @@ All the inference scripts are in `inference_scripts` directory. All scripts are 
 * `run_ufconf_denoise.py`: Runs the full backward process.
 
 The running parameters (`num_replicas`, `protein ID`...) are defined in the JSON file specified by `-t` argument.  The model (`.pt` checkpoint) used for inference is specified by `-c`. 
-In default the script will be run with the input PDB file (will download MSA if needed), The pdb path is specified by the argument `-i` or `--input_pdbs`. The pdb name is specified by the `pdb` param in the JSON input. If you provide the input structure in `.cif` format, the argument `--from_cif` should be set. 
+In default the script will be run with the input fasta file (will download MSA if needed), the fasta file path is specified by the argument `-i` or `--input_pdbs`. The fasta file name is specified by the `fasta` param in the JSON input. Other than the fasta file as input, the script can also accept `pdb` and `cif` files as input. If you provide the input structure in `.pdb` format, the argument `--from_pdb` should be set, and the input pdb file name should be specified in the `pdb` param in the JSON input. If you provide the input structure in `.cif` format, the argument `--from_cif` should be set.
 
 To run the script:
+If provide the `.fasta` file as input:
 ```bash
-python run_ufconf_denoise.py -t example_ufconf/1ake_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out
+python run_ufconf_denoise.py -t example_ufconf/1ake_from_fasta.json -i input_fastas/ -c checkpoint.pt -o ./ufconf_out
+```
+If provide the `.pdb` file as input:
+```bash
+python run_ufconf_denoise.py -t example_ufconf/1ake_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out --from_pdb
 ```
 
 ### langevin mode
