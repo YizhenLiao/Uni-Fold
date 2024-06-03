@@ -571,24 +571,9 @@ def model_config(name, train=False):
 
     if name == "ufconf_af2_v3":
         c = ufconf_af2_v3(c)
-    elif name == "ufconf_af2_v3_ft":
+    elif name == "ufconf_af2_v3_torsion":
         c = ufconf_af2_v3(c)
-        c.loss.violation.weight = 0.5
-        c.data.train.crop_size = 384
-    elif name == "ufconf_af2_v3_b":
-        c = ufconf_af2_v3_b(c)
-    elif name == "ufconf_af2_v3_c":
-        c = ufconf_af2_v3_c(c)
-    elif name == "ufconf_af2_v3_c_tor":
-        c = ufconf_af2_v3_c(c)
-        c = tordiff(c)
-    elif name == "ufconf_af2_v3_c_v2w":
-        c = ufconf_af2_v3_c(c)
-        c.data.common.use_v2_weight = True
-    elif name == "ufconf_af2_v3_c_tor_v2w":
-        c = ufconf_af2_v3_c(c)
-        c = tordiff(c)
-        c.data.common.use_v2_weight = True
+        c = use_torsional_diffusion(c)
     else:
         raise ValueError(f"invalid --model-name: {name}.")
 
@@ -601,6 +586,7 @@ def model_config(name, train=False):
 
 
 def ufconf_af2_v3(c):
+    # align configurations with alphafold 2.3
     recursive_set(c, "max_extra_msa", 2048)
     recursive_set(c, "max_msa_clusters", 512)
     recursive_set(c, "is_multimer", True)
@@ -627,35 +613,26 @@ def ufconf_af2_v3(c):
     c.loss.update_penalty.weight = 0.01
     c.loss.global_atom_error.weight = 0.5
     recursive_set(c, "outer_product_mean_first", True)
+
+    # do not use templates
     c.data.common.reduce_msa_clusters_by_max_templates = False  # no templs
-    return c
 
-def ufconf_af2_v3_b(c):
-    c = ufconf_af2_v3(c)
-    # new diffusion curation (check notebooks/test_diffusion_scheme.ipynb)
-    c.diffusion.position.kernel = "ddpm"
-    c.diffusion.position.params = (0.01, 1.5)
-    # lower global atom error weight (as a guidance loss to learn optimal aligment, while keeping main acc ctrl.ed by fape.)
-    c.loss.global_atom_error.weight = 0.1
-    # add time scaling (scale down loss at t->1. Therefore ~10x learning rate (1e-3) can be applied.)
-    recursive_set(c, "time_scaling", 0.1)
-    # use spatial crop only
-    recursive_set(c, "spatial_crop_prob", 1.0)
-    # other changes:
-    # 1. remove self distillation training.
-    # 2. use UnifoldDataset to correctly sampling monomers.
-    # 3. implemented multimer dataset correctly (ctrl.ed via finetune_ufconf.sh)
-    return c
-
-def ufconf_af2_v3_c(c):
-    c = ufconf_af2_v3_b(c)
-    # enhanced time features.
+    # model configuration
     c.model.use_time_emb_per_layer = False
-    # new recycler
     c.model.use_additional_recycler = True
     c.diffusion.chi.enabled = False
+
+    # diffusion schema
+    c.diffusion.position.kernel = "ddpm"
+    c.diffusion.position.params = (0.01, 1.5)
+
+    # configurations used only in training:
+    c.loss.global_atom_error.weight = 0.1
+    recursive_set(c, "time_scaling", 0.1)
+    recursive_set(c, "spatial_crop_prob", 1.0)
+
     return c
 
-def tordiff(c):
+def use_torsional_diffusion(c):
     c.diffusion.chi.enabled = True
     return c

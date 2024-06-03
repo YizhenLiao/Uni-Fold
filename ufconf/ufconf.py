@@ -1,7 +1,7 @@
 from unifold.modules.alphafold import *
 from unifold.modules.common import Linear, Resnet
 from .ufconf_modules import (
-    UFConfSM,
+    UFConfStructureModule,
     TimeEmbedder,
     ChiAngleEmbedder,
     RelativePositionRecycler,
@@ -62,7 +62,7 @@ class UFConformer(AlphaFold):
             )
             self.time_embedder = None
 
-        self.structure_module = UFConfSM(**config["structure_module"])
+        self.structure_module = UFConfStructureModule(**config["structure_module"])
         self.aux_heads = AuxiliaryHeads(
             config["heads"],
         )

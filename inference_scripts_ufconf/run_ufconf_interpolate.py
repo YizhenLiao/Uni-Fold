@@ -328,8 +328,8 @@ if __name__ == "__main__":
         help="chunk size of the model"
     )
     parser.add_argument(
-        "--model", type=str, default="ufconf_af2_v3_c",
-        help="the name of the model. (default: `ufconf_af2_v3_c`)."
+        "--model", type=str, default="ufconf_af2_v3",
+        help="the name of the model. (default: `ufconf_af2_v3`)."
     )
     parser.add_argument(
         "--data_idx", type=str, default="0",
