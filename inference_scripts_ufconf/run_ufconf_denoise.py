@@ -190,24 +190,7 @@ def main(args):
         output_dir, output_traj_dir, dir_feat_name = utils.setup_directories(args, job_name, Job, mode = "denoise")
         utils.save_config_json(checkpoint_path, output_dir, Job)
         # If use `from_cif` flag, then generate MSA based on the input cif file.
-        if args.from_fasta:
-            print("loading features from fasta...")
-            for attempt in range(max_retries):
-                try:
-                    # Attempt to load the features
-                    seqs, feat_raw = utils.load_features_from_fasta(args, Job, dir_feat_name)
-                    all_chain_labels = None
-                    break  # If successful, exit the loop
-                except Exception as e:  # Catching a general exception
-                    if attempt < max_retries - 1:
-                        # If not the last attempt, wait and then retry
-                        print(f"EOFError encountered. Retrying in {retry_delay} seconds...")
-                        time.sleep(retry_delay)
-                    else:
-                        # If it was the last attempt, re-raise the exception
-                        print("Maximum retries reached. Aborting.")
-                        raise
-        elif args.from_cif:
+        if args.from_cif:
             print("loading features from cif...")
             for attempt in range(max_retries):
                 try:
@@ -229,6 +212,23 @@ def main(args):
                 try:
                     # Attempt to load the features
                     feat_raw, all_chain_labels = utils.load_features_from_pdb(args, Job, dir_feat_name, cif=False)
+                    break  # If successful, exit the loop
+                except Exception as e:  # Catching a general exception
+                    if attempt < max_retries - 1:
+                        # If not the last attempt, wait and then retry
+                        print(f"EOFError encountered. Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                    else:
+                        # If it was the last attempt, re-raise the exception
+                        print("Maximum retries reached. Aborting.")
+                        raise
+        elif args.from_fasta:
+            print("loading features from fasta...")
+            for attempt in range(max_retries):
+                try:
+                    # Attempt to load the features
+                    seqs, feat_raw = utils.load_features_from_fasta(args, Job, dir_feat_name)
+                    all_chain_labels = None
                     break  # If successful, exit the loop
                 except Exception as e:  # Catching a general exception
                     if attempt < max_retries - 1:

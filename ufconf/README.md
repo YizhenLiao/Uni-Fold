@@ -6,8 +6,8 @@ All the inference scripts are in `inference_scripts` directory. All scripts are 
 The running parameters (`num_replicas`, `protein ID`...) are defined in the JSON file specified by `-t` argument.  The model (`.pt` checkpoint) used for inference is specified by `-c`. 
 In default the script will be run with the input fasta file (will download MSA if needed), the fasta file path is specified by the argument `-i` or `--input_pdbs`. The fasta file name is specified by the `fasta` param in the JSON input. Other than the fasta file as input, the script can also accept `pdb` and `cif` files as input. If you provide the input structure in `.pdb` format, the argument `--from_pdb` should be set, and the input pdb file name should be specified in the `pdb` param in the JSON input. If you provide the input structure in `.cif` format, the argument `--from_cif` should be set.
 
-To run the script:
-If provide the `.fasta` file as input:
+To run the script,
+if provide the `.fasta` file as input:
 ```bash
 python run_ufconf_denoise.py -t example_ufconf/1ake_from_fasta.json -i input_fastas/ -c checkpoint.pt -o ./ufconf_out
 ```
@@ -15,7 +15,10 @@ If provide the `.pdb` file as input:
 ```bash
 python run_ufconf_denoise.py -t example_ufconf/1ake_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out --from_pdb
 ```
-
+If provide the `.cif` file as input:
+```bash
+python run_ufconf_denoise.py -t example_ufconf/1ake_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out --from_cif
+```
 ### langevin mode
 * `run_ufconf_langevin.py`:  Runs langevin dynamics from a predefined diffusion timestep in the JSON file (MD-like). This is to test the *correlated sampling* of the model besides diffusion dynamics, which is *uncorrelated sampling*.  
 
@@ -77,6 +80,9 @@ Available keyword arguments are below.
 {
     "residue_idx": "1-140/142-281/283-427/429-573",
     # global index of residues that one wants to sample in ufconf, start from 0, using "/" to separate regions, index is across all chains
+    "fasta": "1AEL-12_A", (optional)
+    # fast file name of the system.
+    # the fast file must exist at path `<input_pdbs>/<fasta>.fa`.
     "pdb": "1AEL-12_A",
     # pdb name of one conformation of a protein.
     # a pdb file must exist at path `<input_pdbs>/<pdb>.pdb`.
