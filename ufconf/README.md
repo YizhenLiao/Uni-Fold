@@ -44,12 +44,12 @@ conda create -n ufconf python=3.9
 
 ## Based on your cuda version, install Pytorch (Using china image if necessary)
 ```bash
-pip3 install torch torchvision torchaudio 
+conda install pytorch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 pytorch-cuda=11.8 -c pytorch -c nvidia
 ```
 
 ## Clone the Uni-core repository and install
 ```bash
-pip install -r requirement.txt
+pip install -r requirements.txt
 ```
 If you intend to compile on your slurm machine, connect to a GPU node,cd to Uni-core dir and then
 ```bash
