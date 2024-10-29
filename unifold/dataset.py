@@ -300,8 +300,9 @@ def process(
 
     if labels is not None:
         labels = [{k: torch.tensor(v) for k, v in l.items()} for l in labels]
-        with torch.no_grad():
-            labels = process_labels(labels)
+        if len(labels) == 1:
+            with torch.no_grad():
+                labels = process_labels(labels)
 
     return features, labels
 

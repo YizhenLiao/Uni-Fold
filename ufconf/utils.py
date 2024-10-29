@@ -829,6 +829,9 @@ def recur_print(x):
     else:
         raise RuntimeError(x)
 
+from Bio import SeqIO
+import re
+
 def load_features_from_fasta(args, Job, dir_feat_name=None):
     fasta_name = Job["fasta"]
     if "symmetry_operations" in Job:
@@ -838,15 +841,64 @@ def load_features_from_fasta(args, Job, dir_feat_name=None):
 
     # extract the seq from the input fasta file
     fasta_path = os.path.join(args.input_pdbs, fasta_name + ".fasta")
-    with open(fasta_path, "r") as f:
-        seqs = f.readlines()[1].strip()
+    # Initialize lists for sequence IDs and sequences
+    seq_ids = []
+    seqs = []
+
+    # Parse the fasta file
+    for record in SeqIO.parse(fasta_path, "fasta"):
+        # Use regex to find the chain identifier after "Chain" in the description
+        match = re.search(r"Chain (\w)", record.description)
+        if match:
+            seq_ids.append(match.group(1))  # Add the letter following "Chain" to seq_ids list
+        seqs.append(str(record.seq))
+    # with open(fasta_path, "r") as f:
+    #     seqs = f.readlines()[1].strip()
     
-    # extract the chain ID from the input fasta file
-    chain_id = fasta_name.split("_")[-1]
+    # # extract the chain ID from the input fasta file
+    # chain_id = fasta_name.split("_")[-1]
 
     # generate sequences from input features
-    seq_ids = [chain_id]
-    seqs = [seqs]
+    # seq_ids = [chain_id]
+    # seqs = [seqs]
+    aatype = []
+    residue_index = []
+    res_list_idx = []
+    chain_ids = []
+    for seq_idx in range(len(seqs)):
+        seq = seqs[seq_idx]
+        chain_id = seq_ids[seq_idx]
+        for res_idx in range(len(seq)):
+            res_shortname = seq[res_idx]
+            restype_idx = rc.restype_order.get(
+                res_shortname, rc.restype_num
+            )
+            aatype.append(restype_idx)
+            residue_index.append(res_idx)
+            res_list_idx.append(res_idx)
+            chain_ids.append(chain_id)
+
+    chain_index_map = [(c, r, i) for c,r,i in zip(chain_ids, residue_index, res_list_idx)]
+    feat = {
+        'aatype' : np.array(aatype),
+        'residue_index' : np.array(residue_index),
+        'pdb_idx' : chain_index_map
+    }
+    
+    feat = chain_feat_map(feat)
+
+    all_chain_labels = []
+    seq_ids = sorted(list(feat.keys()))
+    for key in seq_ids:
+        print("key", key)
+        labels = {
+            "aatype": feat[key]["aatype"]
+        }
+        all_chain_labels.append(labels)
+        labels["resolution"] = np.array([0.])
+        pickle.dump(labels, gzip.open(
+            f"{dir_feat_name}/{key}.label.pkl.gz", "wb"))
+            
     # # generate all the MSA for the given sequence
     seqs, seq_ids, feat = make_input_features(
         dir_feat_name,
@@ -866,4 +918,4 @@ def load_features_from_fasta(args, Job, dir_feat_name=None):
         symmetry_operations=symmetry_operations
     )
 
-    return seqs, feat
+    return feat, all_chain_labels
