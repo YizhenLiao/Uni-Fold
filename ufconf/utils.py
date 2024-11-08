@@ -117,7 +117,7 @@ def prepare_features(feat, Job):
         if isinstance(Job["residue_idx"], str):
             for part in Job["residue_idx"].split("/"):
                 residue_idx = part.split("-")
-                residue_indices = list(range(residue_idx[0], residue_idx[1] + 1))
+                residue_indices = list(range(int(residue_idx[0]), int(residue_idx[1]) + 1))
                 residue_list.extend(residue_indices)
         elif isinstance(Job["residue_idx"], list):
             residue_list = [int(i) for i in Job["residue_idx"]]
