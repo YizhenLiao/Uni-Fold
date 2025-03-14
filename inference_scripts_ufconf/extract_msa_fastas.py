@@ -59,8 +59,16 @@ if __name__ == "__main__":
         help="path to a json file specifying the task to conduct"
     )
     parser.add_argument(
-        "-i", "--input_fastas", type=str, default=None,
+        "-i", "--input_pdbs", type=str, default=None,
         help="directory of input fasta files."
+    )
+    parser.add_argument(
+        "-msa", "--msa_file_path", type=str, default=None,
+        help="the path for existing MSA file"
+    )
+    parser.add_argument(
+        "--use_exist_msa", action="store_true",
+        help="if set, then use existing MSA (default: not set)."
     )
     parser.add_argument(
         "-o", "--outputs", type=str, default=None, required=True,
