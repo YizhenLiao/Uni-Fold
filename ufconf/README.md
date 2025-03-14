@@ -19,6 +19,12 @@ If provide the `.cif` file as input:
 ```bash
 python run_ufconf_denoise.py -t example_ufconf/1ake_from_pdb.json -i input_pdbs/ -c checkpoint.pt -o ./ufconf_out --from_cif
 ```
+
+If you are in machines without web access, execute the msa generation code first
+```bash
+python extract_msa_fastas.py -t example_ufconf/1ake_from_fasta.json -i input_fastas/ -o ./ufconf_out
+```
+
 ### langevin mode
 * `run_ufconf_langevin.py`:  Runs langevin dynamics from a predefined diffusion timestep in the JSON file (MD-like). This is to test the *correlated sampling* of the model besides diffusion dynamics, which is *uncorrelated sampling*.  
 
@@ -50,9 +56,6 @@ conda install pytorch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 pytorch-cuda=
 ## Clone the Uni-core repository and install
 ```bash
 pip install -r requirements.txt
-```
-If you intend to compile on your slurm machine, connect to a GPU node,cd to Uni-core dir and then
-```bash
 python setup.py install
 ```
 
