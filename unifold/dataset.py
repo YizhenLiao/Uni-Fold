@@ -300,7 +300,7 @@ def process(
 
     if labels is not None:
         labels = [{k: torch.tensor(v) for k, v in l.items()} for l in labels]
-        if len(labels) == 1:
+        if "all_atom_positions" in labels:
             with torch.no_grad():
                 labels = process_labels(labels)
 
