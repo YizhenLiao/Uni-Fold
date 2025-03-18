@@ -6,6 +6,7 @@ import torch
 import time
 from typing import *
 import tqdm
+import pickle
 
 from absl import logging
 logging.set_verbosity("info")
@@ -227,8 +228,10 @@ def main(args):
             for attempt in range(max_retries):
                 try:
                     # Attempt to load the features
-                    seqs, feat_raw = utils.load_features_from_fasta(args, Job, dir_feat_name)
-                    all_chain_labels = None
+                    feat_raw, all_chain_labels = utils.load_features_from_fasta(args, Job, dir_feat_name)
+                    # Save it as a .pkl file
+                    with open(os.path.join(dir_feat_name,'features.pkl'), 'wb') as f:
+                        pickle.dump(feat_raw, f)
                     break  # If successful, exit the loop
                 except Exception as e:  # Catching a general exception
                     if attempt < max_retries - 1:
@@ -266,13 +269,13 @@ def main(args):
             # diffuse inputs to noisy structure
             if featd["diffusion_t"] == 1.0:
                 if "motif" in Job and Job["motif"] == True:
-                    logging.info(f"add noise {featd['diffusion_t']} to backbone and sidechain frame...")
+                    logging.info(f"add noise {featd['diffusion_t']} to backbone frame...")
                     featd = diffuse_inputs(featd, diffuser, my_seed, config.diffusion, task="predict")
                 else:
-                    logging.info(f"set backbone and sidechain frame to be prior...")
+                    logging.info(f"set backbone frame to be prior...")
                     featd = utils.set_prior(featd, diffuser, my_seed, config.diffusion)
             else:
-                logging.info(f"add noise {featd['diffusion_t']} to backbone and sidechain frame...")
+                logging.info(f"add noise {featd['diffusion_t']} to backbone frame...")
                 featd = diffuse_inputs(featd, diffuser, my_seed, config.diffusion, task="predict")
 
             batch = utils.prepare_batch(featd, lab, args)

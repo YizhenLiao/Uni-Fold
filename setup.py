@@ -34,9 +34,9 @@ setup(
         "absl-py",
         "biopython",
         "ml-collections",
-        "numpy",
-        "pandas",
-        "scipy",
+        "numpy==1.26.3",
+        "pandas==2.2.3",
+        "scipy==1.13.1",
     ],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
