@@ -21,7 +21,7 @@ import ufconf.utils as utils
 max_retries = 3  # Maximum number of retries
 retry_delay = 3  # Delay between retries in seconds
 
-def process_replica(args, model, batch, diffuser, config, Job, output_traj_dir, job_name, replica):
+def process_replica(args, model, batch, diffuser, config, Job, output_traj_dir, job_name, replica, res1_indices,res2_indices, distances):
     batch_constants = {
         key: batch[key].squeeze() for key in ("seq_mask", "residue_index", "chain_id")
     }
@@ -75,7 +75,11 @@ def process_replica(args, model, batch, diffuser, config, Job, output_traj_dir, 
                 f_t, fh_0,
                 batch["frame_gen_mask"],
                 t=t, s=s,
-                tor_t=tor_t, torh_0=torh_0
+                tor_t=tor_t, torh_0=torh_0,
+                res1_indices = res1_indices,
+                res2_indices = res2_indices,
+                distances = distances,
+                eta = 0.2
             )
         batch["noisy_frames"] = f_s
         if tor_s is not None:
@@ -245,6 +249,14 @@ def main(args):
         else:
             print(f"Please provide valid flag: 'from_fasta, ''from_pdb' or 'from_cif'.")
             
+        if args.use_guidance:
+            guide_csv = os.path.join(args.input_pdbs, f'{Job["guidance_csv"]}.csv')
+            res1_indices, res2_indices, distances = utils.extract_index_and_distance_lists(guide_csv,10)
+        else:
+            res1_indices = []
+            res2_indices = []
+            distances = []
+            
         for replica in tqdm.tqdm(range(Job["num_replica"]), total=Job["num_replica"]) \
             if Job["num_replica"] >= 10 else range(Job["num_replica"]):
             logging.info(f"running replica {replica+1}/{Job['num_replica']}...")
@@ -279,7 +291,7 @@ def main(args):
                 featd = diffuse_inputs(featd, diffuser, my_seed, config.diffusion, task="predict")
 
             batch = utils.prepare_batch(featd, lab, args)
-            process_replica(args, model, batch, gpu_diffuser, config, Job, output_traj_dir, job_name, replica)
+            process_replica(args, model, batch, gpu_diffuser, config, Job, output_traj_dir, job_name, replica, res1_indices, res2_indices,distances)
         print("Denoising inference completed!")
         
     return
@@ -334,6 +346,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--use_exist_msa", action="store_true",
         help="if set, then use existing MSA (default: not set)."
+    )
+    parser.add_argument(
+        "--use_guidance", action="store_true",
+        help="if set, then use existing guidance (default: not set)."
     )
     parser.add_argument(
         "--from_fasta", action=argparse.BooleanOptionalAction, default=True,

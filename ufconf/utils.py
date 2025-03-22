@@ -28,6 +28,7 @@ from ufconf.diffuse_ops import rbf_kernel,make_noisy_quats
 from ufconf.diffusion.diffuser import angles_to_sin_cos, sin_cos_to_angles
 from unifold.losses.geometry import kabsch_rotation as kabsch
 from unifold.dataset import UnifoldDataset
+import pandas as pd
 
 from absl import logging
 logging.set_verbosity("info")
@@ -165,6 +166,17 @@ def prepare_batch(featd, lab, args):
         batch_device["chain_id"] = torch.cat(chain_id_list, dim=0)
         
     return batch_device
+
+def extract_index_and_distance_lists(csv_file, top_n=20):
+    """Extract residue index pairs and distances from a CSV file."""
+    df = pd.read_csv(csv_file)
+    df = df.head(top_n)
+
+    res1_indices = df["Residue1_Index"].tolist()
+    res2_indices = df["Residue2_Index"].tolist()
+    distances = df["Distance (\u00c5)"].tolist()
+
+    return res1_indices, res2_indices, distances
 
 # handle pdb format files
 def get_pdb(filename):

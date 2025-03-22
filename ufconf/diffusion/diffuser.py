@@ -89,6 +89,10 @@ class EuclideanDiffuser(nn.Module):
         diff_mask: torch.Tensor,    # [*, L]
         t: torch.Tensor,            # [*]
         s: torch.Tensor,     # [*]
+        res1_indices,
+        res2_indices,
+        distances,
+        eta = 0.1
     ):
         '''
         backward transition from timestamp `t` to `s` (s < t).
@@ -103,9 +107,14 @@ class EuclideanDiffuser(nn.Module):
         beta = (1. - gt / gs)[..., None].clamp_max(self.beta_clip)
 
         score = self.score(x_t, xh_0, t)
+        
+        guidance =  self.compute_guidance(x_t, res1_indices, res2_indices, distances)
+        
+        # print("beta score",beta * score * self.scale_factor**2)
+        # print("eta guidance", eta * guidance[guidance >0])
 
         # x_s = (2. - (1. - beta).sqrt()) * x_t + beta * score + beta.sqrt() * z * self.scale_factor
-        x_s = (1/(1 - beta).sqrt())*( x_t + beta * score * self.scale_factor**2) + ((1 - gs)/(1 - gt)*beta).sqrt() * z * self.scale_factor
+        x_s = (1/(1 - beta).sqrt())*( x_t + beta * score * self.scale_factor**2 + eta * guidance) + ((1 - gs)/(1 - gt)*beta).sqrt() * z * self.scale_factor
         # x_s = torch.where(
         #     s[..., None, None] > 1e-12, x_s, xh_0
         # )
@@ -131,6 +140,36 @@ class EuclideanDiffuser(nn.Module):
         g = self.gamma(t)[..., None, None]
         score = (g.sqrt() * x_0 - x_t) / (1. - g) / self.scale_factor**2
         return score
+    
+    def compute_guidance(self, x_t, res1_indices, res2_indices, distances):
+        """
+        Compute guidance term for diffusion process based on selected atom pairs.
+        
+        Args:
+            x_t (torch.Tensor): Current structure positions at time t.
+            beta_t (float): Noise schedule parameter.
+            x_0 (torch.Tensor): Target structure positions.
+            atom_pairs (list): List of (index1, index2) pairs for guidance.
+            
+        Returns:
+            torch.Tensor: Guidance term G.
+        """
+        G = torch.zeros_like(x_t)
+
+        for idx1, idx2, dist_target in zip(res1_indices,res2_indices,distances):
+            x1, x2 = x_t[idx1], x_t[idx2]
+
+            # Compute the guidance vector
+            dist_current = torch.norm(x2 - x1, dim=-1, keepdim=True)
+            
+            # print("dist_current",dist_current)
+            # print("dist_target", dist_target)
+
+            # Compute G as described in the equation
+            direction = (x2 - x1) / dist_current.clamp(min=1e-6)
+            G[idx2] =  - (dist_current - dist_target) * direction
+
+        return G
 
 
 class PositionDiffuser(EuclideanDiffuser):
@@ -606,11 +645,15 @@ class Diffuser(nn.Module):
         s: torch.Tensor,          # [*]
         tor_t: torch.Tensor = None,
         torh_0: torch.Tensor = None,
+        res1_indices: list = [],
+        res2_indices: list = [],
+        distances: list = [],
+        eta: float = 0.1
     ):
         r_t, p_t = frames_to_r_p(f_t)
         rh_0, ph_0 = frames_to_r_p(fh_0)
         r_s, _ = self.rot_trans.denoise(r_t, rh_0, frame_gen_mask, t, s)
-        p_s, _ = self.pos_trans.denoise(p_t, ph_0, frame_gen_mask, t, s)
+        p_s, _ = self.pos_trans.denoise(p_t, ph_0, frame_gen_mask, t, s, res1_indices,res2_indices,distances, eta)
         f_s = r_p_to_frames(r_s, p_s)
         if tor_t is not None:
             assert self.chi_trans is not None
